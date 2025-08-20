@@ -1,0 +1,24 @@
+[project]
+name = "rimworld-base-assistant"
+version = "0.1.0"
+description = "RimWorld base-building assistant"
+authors = [
+    {name = "Assistant"}
+]
+readme = "README.md"
+requires-python = "^3.11"
+dependencies = [
+    "lxml (>=6.0.0,<7.0.0)",
+    "numpy (>=2.3.2,<3.0.0)",
+    "pydantic (>=2.11.7,<3.0.0)",
+    "fastapi (>=0.116.1,<0.117.0)",
+    "redis (>=6.4.0,<7.0.0)",
+    "pytest (>=8.4.1,<9.0.0)",
+    "matplotlib (>=3.10.5,<4.0.0)",
+    "pillow (>=11.3.0,<12.0.0)"
+]
+
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
