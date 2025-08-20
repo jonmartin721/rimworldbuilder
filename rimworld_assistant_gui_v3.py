@@ -183,21 +183,59 @@ class ModeCard(tk.Frame):
 
 class InteractiveMapCanvas(Canvas):
     """Enhanced map canvas with better visuals and interaction"""
-    def __init__(self, parent, width=600, height=600):
-        super().__init__(parent, width=width, height=height, 
-                        bg=ModernTheme.BG_DARK, highlightthickness=0)
+    def __init__(self, parent, width=800, height=600):
+        # Create a frame with scrollbars
+        self.container = tk.Frame(parent, bg=ModernTheme.BG_DARK)
+        self.container.pack(fill=tk.BOTH, expand=True)
+        
+        # Create scrollbars
+        self.v_scrollbar = tk.Scrollbar(self.container, orient=tk.VERTICAL)
+        self.v_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        
+        self.h_scrollbar = tk.Scrollbar(self.container, orient=tk.HORIZONTAL)
+        self.h_scrollbar.pack(side=tk.BOTTOM, fill=tk.X)
+        
+        # Create canvas with scrollbars
+        super().__init__(self.container, width=width, height=height,
+                        bg=ModernTheme.BG_DARK, highlightthickness=0,
+                        xscrollcommand=self.h_scrollbar.set,
+                        yscrollcommand=self.v_scrollbar.set)
+        
+        self.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        
+        # Configure scrollbars
+        self.h_scrollbar.config(command=self.xview)
+        self.v_scrollbar.config(command=self.yview)
         
         self.map_data = None
         self.selection = None
         self.drag_start = None
         self.selection_callback = None
         self.grid_size = 10  # Size of each grid cell in pixels
+        self.zoom_level = 1.0  # Current zoom level
+        self.pan_start = None  # For panning
+        
+        # Set initial scroll region (will be updated when content is added)
+        self.config(scrollregion=(0, 0, width, height))
         
         # Bind events
         self.bind("<Button-1>", self.start_selection)
         self.bind("<B1-Motion>", self.update_selection)
         self.bind("<ButtonRelease-1>", self.finish_selection)
         self.bind("<Motion>", self.on_mouse_move)
+        
+        # Add zoom bindings
+        self.bind("<Control-MouseWheel>", self.on_zoom)  # Windows
+        self.bind("<Control-Button-4>", self.on_zoom)    # Linux scroll up
+        self.bind("<Control-Button-5>", self.on_zoom)    # Linux scroll down
+        
+        # Add pan bindings (middle mouse or shift+left mouse)
+        self.bind("<Button-2>", self.start_pan)  # Middle mouse
+        self.bind("<B2-Motion>", self.do_pan)
+        self.bind("<ButtonRelease-2>", self.end_pan)
+        self.bind("<Shift-Button-1>", self.start_pan)  # Shift+left click
+        self.bind("<Shift-B1-Motion>", self.do_pan)
+        self.bind("<Shift-ButtonRelease-1>", self.end_pan)
         
         # Initial drawing
         self.draw_background()
@@ -223,10 +261,12 @@ class InteractiveMapCanvas(Canvas):
     def draw_help_text(self):
         """Draw help text when no map is loaded"""
         if not self.map_data:
-            self.create_text(300, 280, text="Load a save file to see the map",
+            self.create_text(400, 280, text="Load a save file to see the map",
                            font=ModernTheme.FONT_HEADING, fill=ModernTheme.TEXT_MUTED)
-            self.create_text(300, 320, text="Click and drag to select base location",
+            self.create_text(400, 320, text="Click and drag to select base location",
                            font=ModernTheme.FONT_BODY, fill=ModernTheme.TEXT_MUTED)
+            self.create_text(400, 350, text="Ctrl+Scroll to zoom, Shift+Drag or Middle-click to pan",
+                           font=ModernTheme.FONT_SMALL, fill=ModernTheme.TEXT_MUTED)
     
     def load_map(self, game_state, foundation_grid=None):
         """Load and visualize map from game state"""
@@ -237,11 +277,17 @@ class InteractiveMapCanvas(Canvas):
         if game_state and game_state.maps:
             first_map = game_state.maps[0]
             
-            # Calculate scale
+            # Calculate scale - use larger base size for better visibility
             map_width = first_map.width if hasattr(first_map, 'width') else 250
             map_height = first_map.height if hasattr(first_map, 'height') else 250
-            scale_x = 600 / map_width
-            scale_y = 600 / map_height
+            
+            # Use a base tile size of 3-4 pixels for good visibility
+            base_tile_size = 3
+            canvas_width = map_width * base_tile_size
+            canvas_height = map_height * base_tile_size
+            
+            scale_x = canvas_width / map_width
+            scale_y = canvas_height / map_height
             
             # Draw terrain (simplified)
             terrain_colors = {
@@ -263,25 +309,34 @@ class InteractiveMapCanvas(Canvas):
                 light_positions = np.argwhere(foundation_grid == 0x1A47)  # 437 wood bridges
                 heavy_positions = np.argwhere(foundation_grid == 0x8C7D)  # 6924 heavy bridges
                 
-                # Draw heavy bridges (the many ones)
+                # Draw heavy bridges (the many ones) - each as exactly 1x1 tile
                 for y, x in heavy_positions:
-                    canvas_x = int(x * scale_x)
-                    canvas_y = int((map_height - y - 1) * scale_y)  # Apply Y-flip
-                    # Heavy bridges - dark gray with solid outline
-                    self.create_rectangle(canvas_x-4, canvas_y-4, canvas_x+4, canvas_y+4,
-                                         fill="#505050", outline="#FFFFFF", width=1, tags="heavy_bridge")
+                    # Calculate the top-left corner of the tile
+                    tile_x1 = int(x * scale_x)
+                    tile_y1 = int((map_height - y - 1) * scale_y)  # Apply Y-flip
+                    # Calculate the bottom-right corner (one tile over)
+                    tile_x2 = int((x + 1) * scale_x)
+                    tile_y2 = int((map_height - y) * scale_y)
+                    # Heavy bridges - dark gray with thin outline
+                    self.create_rectangle(tile_x1, tile_y1, tile_x2, tile_y2,
+                                         fill="#505050", outline="#303030", width=1, tags="heavy_bridge")
                 
-                # Draw light/wood bridges (the few ones)
+                # Draw light/wood bridges (the few ones) - each as exactly 1x1 tile
                 for y, x in light_positions:
-                    canvas_x = int(x * scale_x)
-                    canvas_y = int((map_height - y - 1) * scale_y)  # Apply Y-flip
-                    # Light bridges - brown with solid outline
-                    self.create_rectangle(canvas_x-3, canvas_y-3, canvas_x+3, canvas_y+3,
-                                         fill="#8B4513", outline="#FFD700", width=1, tags="light_bridge")
+                    # Calculate the top-left corner of the tile
+                    tile_x1 = int(x * scale_x)
+                    tile_y1 = int((map_height - y - 1) * scale_y)  # Apply Y-flip
+                    # Calculate the bottom-right corner (one tile over)
+                    tile_x2 = int((x + 1) * scale_x)
+                    tile_y2 = int((map_height - y) * scale_y)
+                    # Light bridges - brown with thin outline
+                    self.create_rectangle(tile_x1, tile_y1, tile_x2, tile_y2,
+                                         fill="#8B4513", outline="#6B3410", width=1, tags="light_bridge")
                 
                 print(f"Drew {len(heavy_positions)} heavy bridges and {len(light_positions)} wood bridges")
             
             # Draw buildings
+            for building in first_map.buildings:
                 if "Bridge" in building.def_name:
                     bridge_count += 1
                 if building.is_frame:
@@ -291,45 +346,54 @@ class InteractiveMapCanvas(Canvas):
                 # But the map appears flipped, so we need to invert Y
                 y = int((map_height - building.position.y - 1) * scale_y)
                 
-                # Determine color based on building type
+                # Determine color and tag based on building type
                 color = ModernTheme.TEXT_MUTED
                 size = 2
+                tag = "other_building"
                 
                 if "Wall" in building.def_name:
                     color = "#808080"
                     size = 2
+                    tag = "walls"
                 elif "Door" in building.def_name:
                     color = "#A0522D"
                     size = 3
-                elif "Bed" in building.def_name:
+                    tag = "doors"
+                elif "Bed" in building.def_name or "Table" in building.def_name:
                     color = "#4169E1"
-                    size = 4
-                elif "Table" in building.def_name:
-                    color = "#8B4513"
-                    size = 3
+                    size = 4 if "Bed" in building.def_name else 3
+                    tag = "furniture"
                 elif "Storage" in building.def_name:
                     color = "#FFD700"
                     size = 3
+                    tag = "storage"
                 elif "Power" in building.def_name or "Battery" in building.def_name:
                     color = "#32CD32"
                     size = 3
+                    tag = "power"
                 elif "Turret" in building.def_name:
                     color = "#FF0000"
                     size = 4
+                    tag = "defense"
                 elif building.def_name == "HeavyBridge":
-                    # Completed heavy bridge - bright green with thick border
-                    color = "#00FF00"  # Bright green for completed
-                    size = 8  # Large size
-                    # Draw with thick outline for visibility
-                    self.create_rectangle(x-size//2-1, y-size//2-1, x+size//2+1, y+size//2+1,
-                                         fill=color, outline="#FFFFFF", width=2, tags="bridge_complete")
+                    # Completed heavy bridge - bright green, exactly 1x1 tile
+                    # Calculate tile boundaries
+                    tile_x1 = int(building.position.x * scale_x)
+                    tile_y1 = int((map_height - building.position.y - 1) * scale_y)
+                    tile_x2 = int((building.position.x + 1) * scale_x)
+                    tile_y2 = int((map_height - building.position.y) * scale_y)
+                    # Draw as exact tile with distinct color
+                    self.create_rectangle(tile_x1, tile_y1, tile_x2, tile_y2,
+                                         fill="#00FF00", outline="#00AA00", width=1, tags="bridge_complete")
                     continue  # Skip the default rectangle drawing
                 elif "Frame_HeavyBridge" in building.def_name:
-                    # Bridge blueprint/frame - cyan with dashed outline
-                    color = "#00FFFF"  # Cyan for frames
-                    size = 6
-                    self.create_rectangle(x-size//2, y-size//2, x+size//2, y+size//2,
-                                         fill=color, outline="#FFFFFF", width=1, dash=(3,3), tags="bridge_frame")
+                    # Bridge blueprint/frame - cyan with dashed outline, exactly 1x1 tile
+                    tile_x1 = int(building.position.x * scale_x)
+                    tile_y1 = int((map_height - building.position.y - 1) * scale_y)
+                    tile_x2 = int((building.position.x + 1) * scale_x)
+                    tile_y2 = int((map_height - building.position.y) * scale_y)
+                    self.create_rectangle(tile_x1, tile_y1, tile_x2, tile_y2,
+                                         fill="#00FFFF", outline="#0088AA", width=1, dash=(3,3), tags="bridge_frame")
                     continue  # Skip the default rectangle drawing
                 elif "Bridge" in building.def_name:
                     # Other bridge types
@@ -338,18 +402,27 @@ class InteractiveMapCanvas(Canvas):
                 elif building.is_frame:
                     color = "#FFFF00"  # Yellow for other frames
                     size = 4
+                    tag = "frames"
                 
                 # Draw building as small rectangle (for non-bridge items)
                 self.create_rectangle(x-size//2, y-size//2, x+size//2, y+size//2,
-                                     fill=color, outline="", tags="building")
+                                     fill=color, outline="", tags=(tag, "building"))
             
             # Log what we found
             print(f"Map loaded: Found {bridge_count} bridges and {frame_count} frames out of {len(first_map.buildings)} total buildings")
             print("Note: Completed heavy bridges are stored as terrain tiles which are compressed - only showing bridge frames/blueprints")
             
+            # Store that we have a loaded save
+            self.current_save = first_map
+            
+            # Update scroll region to encompass all content
+            self.update_scroll_region()
+            
             # Draw colonists
-            if hasattr(first_map, 'colonists'):
-                for colonist in first_map.colonists:
+            colonists = first_map.get_colonists() if hasattr(first_map, 'get_colonists') else []
+            print(f"Found {len(colonists)} colonists")
+            if colonists:
+                for colonist in colonists:
                     if hasattr(colonist, 'position'):
                         x = int(colonist.position.x * scale_x)
                         # Apply same Y-flip as buildings
@@ -359,14 +432,21 @@ class InteractiveMapCanvas(Canvas):
     
     def start_selection(self, event):
         """Start area selection"""
-        self.drag_start = (event.x, event.y)
+        # Don't start selection if we're panning (Shift key pressed)
+        if event.state & 0x1:  # Shift key
+            return
+            
+        # Convert to canvas coordinates (accounting for scroll/zoom)
+        canvas_x = self.canvasx(event.x)
+        canvas_y = self.canvasy(event.y)
+        self.drag_start = (canvas_x, canvas_y)
         
         # Remove old selection
         self.delete("selection")
         
         # Create new selection rectangle
         self.selection = self.create_rectangle(
-            event.x, event.y, event.x, event.y,
+            canvas_x, canvas_y, canvas_x, canvas_y,
             outline=ModernTheme.ACCENT, width=2, dash=(5, 5),
             tags="selection"
         )
@@ -374,25 +454,42 @@ class InteractiveMapCanvas(Canvas):
     def update_selection(self, event):
         """Update selection rectangle while dragging"""
         if self.selection and self.drag_start:
+            # Convert to canvas coordinates
+            canvas_x = self.canvasx(event.x)
+            canvas_y = self.canvasy(event.y)
             x1, y1 = self.drag_start
-            self.coords(self.selection, x1, y1, event.x, event.y)
+            self.coords(self.selection, x1, y1, canvas_x, canvas_y)
     
     def finish_selection(self, event):
         """Finish selection and calculate area"""
         if self.drag_start:
+            # Convert to canvas coordinates
+            canvas_x = self.canvasx(event.x)
+            canvas_y = self.canvasy(event.y)
             x1, y1 = self.drag_start
-            x2, y2 = event.x, event.y
+            x2, y2 = canvas_x, canvas_y
             
             # Ensure correct ordering
             x1, x2 = min(x1, x2), max(x1, x2)
             y1, y2 = min(y1, y2), max(y1, y2)
             
-            # Convert to map coordinates
+            # Get the actual map dimensions and canvas size
+            if hasattr(self, 'current_save'):
+                map_width = self.current_save.width if hasattr(self.current_save, 'width') else 250
+                map_height = self.current_save.height if hasattr(self.current_save, 'height') else 250
+                base_tile_size = 3
+                canvas_width = map_width * base_tile_size
+                canvas_height = map_height * base_tile_size
+            else:
+                map_width = map_height = 250
+                canvas_width = canvas_height = 750
+            
+            # Convert to map coordinates accounting for actual scaling and zoom
             map_coords = (
-                int(x1 * 250 / 600),
-                int(y1 * 250 / 600),
-                int(x2 * 250 / 600),
-                int(y2 * 250 / 600)
+                int(x1 * map_width / (canvas_width * self.zoom_level)),
+                int(y1 * map_height / (canvas_height * self.zoom_level)),
+                int(x2 * map_width / (canvas_width * self.zoom_level)),
+                int(y2 * map_height / (canvas_height * self.zoom_level))
             )
             
             # Calculate size
@@ -411,12 +508,75 @@ class InteractiveMapCanvas(Canvas):
     
     def on_mouse_move(self, event):
         """Show coordinates on mouse move"""
-        map_x = int(event.x * 250 / 600)
-        map_y = int(event.y * 250 / 600)
+        # Use canvas coordinates (accounting for scroll/zoom)
+        x = self.canvasx(event.x)
+        y = self.canvasy(event.y)
+        
+        # Convert to map coordinates (assuming 250x250 map)
+        map_x = int(x * 250 / (600 * self.zoom_level))
+        map_y = int(y * 250 / (600 * self.zoom_level))
         
         # Update cursor coordinates (if we have a label for it)
         if hasattr(self.master, 'coord_label'):
             self.master.coord_label.config(text=f"Map coordinates: ({map_x}, {map_y})")
+    
+    def on_zoom(self, event):
+        """Handle zoom with mouse wheel"""
+        # Determine zoom direction
+        if event.num == 4 or (hasattr(event, 'delta') and event.delta > 0):  # Scroll up
+            scale_factor = 1.1
+        elif event.num == 5 or (hasattr(event, 'delta') and event.delta < 0):  # Scroll down
+            scale_factor = 0.9
+        else:
+            return
+        
+        # Limit zoom levels
+        new_zoom = self.zoom_level * scale_factor
+        if new_zoom < 0.1 or new_zoom > 10:
+            return
+        
+        self.zoom_level = new_zoom
+        
+        # Get mouse position in canvas coordinates
+        x = self.canvasx(event.x)
+        y = self.canvasy(event.y)
+        
+        # Scale all items
+        self.scale("all", x, y, scale_factor, scale_factor)
+        
+        # Update scroll region
+        self.update_scroll_region()
+    
+    def start_pan(self, event):
+        """Start panning the canvas"""
+        self.pan_start = (event.x, event.y)
+        self.config(cursor="fleur")  # Change cursor to move icon
+    
+    def do_pan(self, event):
+        """Pan the canvas"""
+        if self.pan_start:
+            dx = event.x - self.pan_start[0]
+            dy = event.y - self.pan_start[1]
+            
+            # Move the view
+            self.xview_scroll(-dx, "units")
+            self.yview_scroll(-dy, "units")
+            
+            self.pan_start = (event.x, event.y)
+    
+    def end_pan(self, event):
+        """End panning"""
+        self.pan_start = None
+        self.config(cursor="")  # Reset cursor
+    
+    def update_scroll_region(self):
+        """Update the scrollable region after zoom or content change"""
+        bbox = self.bbox("all")
+        if bbox:
+            # Add some padding
+            padding = 50
+            self.config(scrollregion=(bbox[0]-padding, bbox[1]-padding, 
+                                     bbox[2]+padding, bbox[3]+padding))
 
 
 class RimWorldAssistantGUI:
@@ -447,6 +607,10 @@ class RimWorldAssistantGUI:
         # Visualizer with layer support
         self.visualizer = LayeredVisualizer(scale=10)
         self.layer_vars = {}
+        self.filter_vars = {}
+        self.building_filters = {}
+        self.last_grid = None
+        self.current_view = "save"
         
         # Check for AlphaPrefabs
         self.alpha_prefabs_path = self.find_alpha_prefabs()
@@ -721,10 +885,10 @@ Make it efficient with good traffic flow and follow RimWorld best practices."""
         map_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         
         canvas_frame = tk.Frame(map_frame, bg=ModernTheme.BG_DARK, relief=tk.SUNKEN, bd=2)
-        canvas_frame.pack(fill=tk.BOTH, expand=True)
+        canvas_frame.pack(fill=tk.BOTH, expand=True, padx=2, pady=2)
         
+        # Create the canvas with scrollbars (it creates its own container)
         self.map_canvas = InteractiveMapCanvas(canvas_frame)
-        self.map_canvas.pack(padx=2, pady=2)
         self.map_canvas.selection_callback = self.on_area_selected
         
         # Right side - Layer controls (collapsible)
@@ -749,6 +913,97 @@ Make it efficient with good traffic flow and follow RimWorld best practices."""
     
     def setup_layer_controls(self, parent):
         """Setup layer visibility controls"""
+        # Store the parent for switching between controls
+        self.controls_parent = parent
+        
+        # Create frame for switchable controls
+        self.controls_frame = tk.Frame(parent, bg=ModernTheme.BG_APP)
+        self.controls_frame.pack(fill=tk.BOTH, expand=True)
+        
+        # Start with building filters (for loaded saves)
+        self.setup_building_filters(self.controls_frame)
+    
+    def setup_building_filters(self, parent):
+        """Setup building type filters for loaded save visualization"""
+        # Clear any existing controls
+        for widget in parent.winfo_children():
+            widget.destroy()
+        
+        # Title
+        tk.Label(parent, text="Building Filters", font=ModernTheme.FONT_HEADING,
+                bg=ModernTheme.BG_APP, fg=ModernTheme.TEXT_PRIMARY).pack(pady=(10, 5))
+        
+        # Clarification text
+        tk.Label(parent, text="(For loaded saves)", font=(ModernTheme.FONT_FAMILY, 8),
+                bg=ModernTheme.BG_APP, fg=ModernTheme.TEXT_MUTED).pack(pady=(0, 5))
+        
+        # Building type checkboxes frame
+        filters_frame = tk.Frame(parent, bg=ModernTheme.BG_APP)
+        filters_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+        
+        # Define building categories with colors matching the canvas drawing
+        self.building_filters = {
+            "walls": {"name": "Walls", "color": "#808080", "enabled": True, "tags": ["building"]},
+            "doors": {"name": "Doors", "color": "#A0522D", "enabled": True, "tags": ["building"]},
+            "furniture": {"name": "Furniture", "color": "#4169E1", "enabled": True, "tags": ["building"]},
+            "power": {"name": "Power/Battery", "color": "#32CD32", "enabled": True, "tags": ["building"]},
+            "defense": {"name": "Turrets", "color": "#FF0000", "enabled": True, "tags": ["building"]},
+            "bridges_complete": {"name": "Bridges (Built)", "color": "#00FF00", "enabled": True, "tags": ["bridge_complete", "heavy_bridge", "light_bridge"]},
+            "bridges_frame": {"name": "Bridges (Frames)", "color": "#00FFFF", "enabled": True, "tags": ["bridge_frame"]},
+            "frames": {"name": "Other Frames", "color": "#FFFF00", "enabled": True, "tags": ["building"]},
+            "storage": {"name": "Storage", "color": "#FFD700", "enabled": True, "tags": ["building"]},
+            "other": {"name": "Other Buildings", "color": "#696969", "enabled": True, "tags": ["building"]}
+        }
+        
+        # Create variables for filters
+        self.filter_vars = {}
+        
+        for filter_id, filter_info in self.building_filters.items():
+            var = tk.BooleanVar(value=filter_info["enabled"])
+            self.filter_vars[filter_id] = var
+            
+            # Frame for each filter control
+            filter_frame = tk.Frame(filters_frame, bg=ModernTheme.BG_APP)
+            filter_frame.pack(fill=tk.X, pady=3)
+            
+            # Color indicator
+            color_label = tk.Label(filter_frame, text="■", 
+                                 font=(ModernTheme.FONT_FAMILY, 12),
+                                 fg=filter_info["color"],
+                                 bg=ModernTheme.BG_APP)
+            color_label.pack(side=tk.LEFT, padx=(0, 5))
+            
+            # Checkbox
+            cb = tk.Checkbutton(filter_frame, text=filter_info["name"],
+                               variable=var,
+                               font=ModernTheme.FONT_SMALL,
+                               bg=ModernTheme.BG_APP,
+                               fg=ModernTheme.TEXT_PRIMARY,
+                               selectcolor=ModernTheme.BG_APP,
+                               activebackground=ModernTheme.BG_APP,
+                               command=lambda fid=filter_id: self.on_filter_toggle(fid))
+            cb.pack(side=tk.LEFT)
+        
+        # Control buttons
+        btn_frame = tk.Frame(parent, bg=ModernTheme.BG_APP)
+        btn_frame.pack(pady=10)
+        
+        tk.Button(btn_frame, text="All", command=self.show_all_filters, 
+                 font=ModernTheme.FONT_SMALL, width=6,
+                 bg="#5A6268", fg="white", relief=tk.FLAT).pack(side=tk.LEFT, padx=2)
+        tk.Button(btn_frame, text="None", command=self.hide_all_filters,
+                 font=ModernTheme.FONT_SMALL, width=6,
+                 bg="#5A6268", fg="white", relief=tk.FLAT).pack(side=tk.LEFT, padx=2)
+        tk.Button(btn_frame, text="Apply", command=self.apply_building_filters,
+                 font=ModernTheme.FONT_SMALL, width=6,
+                 bg=ModernTheme.ACCENT, fg="white", relief=tk.FLAT).pack(side=tk.LEFT, padx=2)
+    
+    def setup_generation_layers(self, parent):
+        """Setup layer controls for generated bases"""
+        # Clear any existing controls
+        for widget in parent.winfo_children():
+            widget.destroy()
+        
         # Title with smaller font for side panel
         tk.Label(parent, text="Layer Controls", font=ModernTheme.FONT_HEADING,
                 bg=ModernTheme.BG_APP, fg=ModernTheme.TEXT_PRIMARY).pack(pady=(10, 5))
@@ -763,6 +1018,9 @@ Make it efficient with good traffic flow and follow RimWorld best practices."""
         
         # Get layer info from visualizer
         layers = self.visualizer.get_layer_info()
+        
+        # Reset layer vars
+        self.layer_vars = {}
         
         # Create checkbox for each layer in single column
         for layer in layers:
@@ -808,6 +1066,39 @@ Make it efficient with good traffic flow and follow RimWorld best practices."""
                  bg=ModernTheme.ACCENT, fg="white", relief=tk.FLAT).pack(side=tk.LEFT, padx=2)
         
         # Status text (removed preview label since we update main canvas)
+    
+    def on_filter_toggle(self, filter_id):
+        """Handle building filter toggle"""
+        self.building_filters[filter_id]["enabled"] = self.filter_vars[filter_id].get()
+        # Auto-apply filters when toggling
+        self.apply_building_filters()
+    
+    def show_all_filters(self):
+        """Enable all building filters"""
+        for filter_id, var in self.filter_vars.items():
+            var.set(True)
+            self.building_filters[filter_id]["enabled"] = True
+        self.apply_building_filters()
+    
+    def hide_all_filters(self):
+        """Disable all building filters"""
+        for filter_id, var in self.filter_vars.items():
+            var.set(False)
+            self.building_filters[filter_id]["enabled"] = False
+        self.apply_building_filters()
+    
+    def apply_building_filters(self):
+        """Apply building type filters to the loaded save visualization"""
+        if not hasattr(self.map_canvas, 'current_save'):
+            return
+        
+        # Hide or show canvas items based on filters
+        for filter_id, filter_info in self.building_filters.items():
+            for tag in filter_info["tags"]:
+                if filter_info["enabled"]:
+                    self.map_canvas.itemconfig(tag, state='normal')
+                else:
+                    self.map_canvas.itemconfig(tag, state='hidden')
     
     def on_layer_toggle(self, layer_id):
         """Handle layer visibility toggle"""
@@ -930,6 +1221,9 @@ Make it efficient with good traffic flow and follow RimWorld best practices."""
         if self.game_state and self.game_state.maps:
             first_map = self.game_state.maps[0]
             
+            # Switch to building filters for loaded saves
+            self.setup_building_filters(self.controls_frame)
+            
             # Decode foundation grid to find completed bridges
             foundation_grid = None
             try:
@@ -947,8 +1241,8 @@ Make it efficient with good traffic flow and follow RimWorld best practices."""
             self.map_canvas.load_map(self.game_state, foundation_grid)
             self.current_view = "map"  # Set to map view when loading save
             
-            # Count colonists and update default text
-            colonist_count = len(first_map.colonists) if hasattr(first_map, 'colonists') else 10
+            # Count colonists using the proper method
+            colonist_count = len(first_map.get_colonists()) if hasattr(first_map, 'get_colonists') else 10
             suggested_count = int(colonist_count * 1.25)  # +25% for growth
             
             # Update the text input with colonist-appropriate default
@@ -1104,6 +1398,10 @@ Make it efficient with good traffic flow and follow RimWorld best practices."""
     def display_generation(self, grid):
         """Display generated base"""
         self.current_view = "generated"  # Set to generated view
+        self.last_grid = grid
+        
+        # Switch to layer controls for generated bases
+        self.setup_generation_layers(self.controls_frame)
         
         # Use the layered visualizer without flip (we fixed it in the map loading instead)
         img = self.visualizer.visualize(grid, title="Generated Base", 
