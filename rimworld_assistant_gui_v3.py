@@ -228,9 +228,10 @@ class InteractiveMapCanvas(Canvas):
             self.create_text(300, 320, text="Click and drag to select base location",
                            font=ModernTheme.FONT_BODY, fill=ModernTheme.TEXT_MUTED)
     
-    def load_map(self, game_state):
+    def load_map(self, game_state, foundation_grid=None):
         """Load and visualize map from game state"""
         self.map_data = game_state
+        self.foundation_grid = foundation_grid
         self.draw_background()
         
         if game_state and game_state.maps:
@@ -256,8 +257,31 @@ class InteractiveMapCanvas(Canvas):
             bridge_count = 0
             frame_count = 0
             
+            # Draw completed bridges from foundation grid FIRST (under buildings)
+            if foundation_grid is not None:
+                # Foundation values: 0x1A47 = Light/Wood bridge, 0x8C7D = Heavy bridge (SWAPPED!)
+                light_positions = np.argwhere(foundation_grid == 0x1A47)  # 437 wood bridges
+                heavy_positions = np.argwhere(foundation_grid == 0x8C7D)  # 6924 heavy bridges
+                
+                # Draw heavy bridges (the many ones)
+                for y, x in heavy_positions:
+                    canvas_x = int(x * scale_x)
+                    canvas_y = int((map_height - y - 1) * scale_y)  # Apply Y-flip
+                    # Heavy bridges - dark gray with solid outline
+                    self.create_rectangle(canvas_x-4, canvas_y-4, canvas_x+4, canvas_y+4,
+                                         fill="#505050", outline="#FFFFFF", width=1, tags="heavy_bridge")
+                
+                # Draw light/wood bridges (the few ones)
+                for y, x in light_positions:
+                    canvas_x = int(x * scale_x)
+                    canvas_y = int((map_height - y - 1) * scale_y)  # Apply Y-flip
+                    # Light bridges - brown with solid outline
+                    self.create_rectangle(canvas_x-3, canvas_y-3, canvas_x+3, canvas_y+3,
+                                         fill="#8B4513", outline="#FFD700", width=1, tags="light_bridge")
+                
+                print(f"Drew {len(heavy_positions)} heavy bridges and {len(light_positions)} wood bridges")
+            
             # Draw buildings
-            for building in first_map.buildings:
                 if "Bridge" in building.def_name:
                     bridge_count += 1
                 if building.is_frame:
@@ -878,9 +902,18 @@ Make it efficient with good traffic flow and follow RimWorld best practices."""
             
             def load():
                 try:
+                    # Parse with our parser
                     parser = RimWorldSaveParser()
                     self.game_state = parser.parse(file_path)
                     self.save_path = Path(file_path)
+                    
+                    # Also get raw XML for foundation decoding
+                    from lxml import etree
+                    tree = etree.parse(file_path)
+                    root = tree.getroot()
+                    game = root.find('game')
+                    maps = game.find('maps')
+                    self.raw_map_elem = maps.find('li')
                     
                     # Update UI in main thread
                     self.root.after(0, self.on_save_loaded)
@@ -896,7 +929,22 @@ Make it efficient with good traffic flow and follow RimWorld best practices."""
         """Handle save file loaded"""
         if self.game_state and self.game_state.maps:
             first_map = self.game_state.maps[0]
-            self.map_canvas.load_map(self.game_state)
+            
+            # Decode foundation grid to find completed bridges
+            foundation_grid = None
+            try:
+                from src.parser.terrain_decoder import TerrainDecoder
+                decoder = TerrainDecoder()
+                
+                # Get the raw map element for decoding
+                if hasattr(self, 'raw_map_elem'):
+                    foundation_grid = decoder.decode_foundation_grid(self.raw_map_elem)
+                    if foundation_grid is not None:
+                        print(f"Decoded foundation grid with shape {foundation_grid.shape}")
+            except Exception as e:
+                print(f"Could not decode foundation grid: {e}")
+            
+            self.map_canvas.load_map(self.game_state, foundation_grid)
             self.current_view = "map"  # Set to map view when loading save
             
             # Count colonists and update default text
