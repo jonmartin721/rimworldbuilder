@@ -17,8 +17,11 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from src.parser.save_parser import RimWorldSaveParser
 from src.generators.enhanced_hybrid_generator import EnhancedHybridGenerator, PrefabUsageMode
+from src.generators.requirements_driven_generator import RequirementsDrivenGenerator
 from src.nlp.base_generator_nlp import BaseGeneratorNLP
 from src.ai.claude_base_designer import ClaudeBaseDesigner, BaseDesignRequest
+from src.utils.progress import spinner, StepProgress, log_section, log_item, GenerationLogger
+from src.utils.symbols import SUCCESS, FAILURE, WARNING, FOLDER, CHART, PENCIL, ROBOT, HAMMER
 
 
 class RimWorldAssistant:
@@ -61,10 +64,12 @@ class RimWorldAssistant:
                 elif choice == '6':
                     self.ai_design_base()
                 elif choice == '7':
-                    self.visualize_last()
+                    self.smart_generate()
                 elif choice == '8':
-                    self.interactive_viewer()
+                    self.visualize_last()
                 elif choice == '9':
+                    self.interactive_viewer()
+                elif choice == '*':
                     self.export_base()
                 elif choice == '0' or choice.lower() == 'q':
                     print("\nThank you for using RimWorld Base Assistant!")
@@ -106,16 +111,15 @@ class RimWorldAssistant:
         print("4. Generate with Prefab Anchors")
         print("5. Generate Enhanced Hybrid Base")
         print("6. AI-Designed Base (Claude)")
-        print("7. Visualize Last Generation")
-        print("8. Interactive Layer Viewer")
-        print("9. Export Base Design")
+        print("7. Smart Generate (NLP → Prefabs)")
+        print("8. Visualize Last Generation")
+        print("9. Interactive Layer Viewer")
+        print("*. Export Base Design")
         print("0. Exit")
     
     def load_save_file(self):
         """Load a RimWorld save file"""
-        print("\n" + "-" * 40)
-        print("LOAD SAVE FILE")
-        print("-" * 40)
+        log_section("LOAD SAVE FILE", 50)
         
         # List available saves
         saves_dir = Path("data/saves")
@@ -142,27 +146,29 @@ class RimWorldAssistant:
             path = input("Enter save file path: ").strip()
             self.save_path = Path(path)
         
-        # Parse the save
+        # Parse the save with progress indicator
         if self.save_path and self.save_path.exists():
-            print(f"\nLoading {self.save_path}...")
-            parser = RimWorldSaveParser()
-            self.game_state = parser.parse(str(self.save_path))
+            print(f"\n{FOLDER} Loading {self.save_path.name}...")
+            
+            with spinner("Parsing save file"):
+                parser = RimWorldSaveParser()
+                self.game_state = parser.parse(str(self.save_path))
             
             if self.game_state and self.game_state.maps:
                 first_map = self.game_state.maps[0]
-                print(f"✓ Loaded successfully!")
-                print(f"  - Map size: {first_map.size}")
-                print(f"  - Buildings: {len(first_map.buildings)}")
-                print(f"  - Colonists: {len(first_map.get_colonists())}")
+                print(f"{SUCCESS} Loaded successfully!")
+                log_item("Map size", str(first_map.size))
+                log_item("Buildings", str(len(first_map.buildings)))
+                log_item("Colonists", str(len(first_map.get_colonists())))
                 
                 # Count bridges
                 bridges = [b for b in first_map.buildings if "Bridge" in b.def_name]
                 if bridges:
-                    print(f"  - Buildable bridges: {len(bridges)}")
+                    log_item("Buildable bridges", str(len(bridges)))
             else:
-                print("Error: Could not parse save file")
+                print(f"{FAILURE} Error: Could not parse save file")
         else:
-            print("Error: Save file not found")
+            print(f"{FAILURE} Error: Save file not found")
     
     def analyze_current_base(self):
         """Analyze the current base from save file"""
@@ -367,6 +373,82 @@ class RimWorldAssistant:
         self.save_visualization(grid, "enhanced_hybrid.png")
         print(f"\nVisualization saved to enhanced_hybrid.png")
     
+    def smart_generate(self):
+        """Smart generation that combines NLP understanding with intelligent prefab selection"""
+        print("\n" + "-" * 40)
+        print("SMART GENERATION (NLP → PREFABS)")
+        print("-" * 40)
+        
+        if not self.alpha_prefabs_path:
+            print("AlphaPrefabs mod not found! This feature requires AlphaPrefabs.")
+            print("Please clone: https://github.com/juanosarg/AlphaPrefabs into data/AlphaPrefabs")
+            return
+        
+        print("\nThis mode uses natural language to understand your requirements,")
+        print("then intelligently selects and places real RimWorld prefabs.")
+        
+        print(f"\n{PENCIL} Describe your ideal base:")
+        print("Examples:")
+        print("  - 'Defensive base for 8 colonists with medical bay and killbox'")
+        print("  - 'Efficient production base with 4 workshops and large storage'")
+        print("  - 'Comfortable base for 10 colonists with recreation and dining'")
+        
+        description = input("\n> Your requirements: ").strip()
+        if not description:
+            return
+        
+        # Parse with NLP
+        print("\n⏳ Processing your requirements...")
+        
+        with spinner("Parsing natural language"):
+            if not self.nlp:
+                self.nlp = BaseGeneratorNLP(str(self.save_path) if self.save_path else None)
+            
+            requirements = self.nlp.parse_request(description)
+        
+        print(f"\n{CHART} Parsed Requirements:")
+        log_item("Colonists", str(requirements.num_colonists))
+        log_item("Bedrooms", str(requirements.num_bedrooms))
+        log_item("Style", requirements.style)
+        log_item("Defense", requirements.defense_level)
+        
+        # Optionally use Claude for detailed planning
+        use_ai = input(f"\n{ROBOT} Use Claude AI for detailed planning? (y/n, default n): ").lower() == 'y'
+        
+        plan = None
+        if use_ai and os.getenv("ANTHROPIC_API_KEY"):
+            print("Requesting AI design...")
+            if not self.ai_designer:
+                self.ai_designer = ClaudeBaseDesigner()
+            
+            request = BaseDesignRequest(
+                colonist_count=requirements.num_colonists,
+                map_size=(60, 60),
+                difficulty=requirements.defense_level,
+                priorities=[requirements.style],
+                special_requirements=requirements.special_requirements or []
+            )
+            plan = self.ai_designer.design_base(request)
+            
+            if plan:
+                print(f"\n✨ AI Strategy: {plan.layout_strategy}")
+                print(f"🛡️ Defense: {plan.defense_strategy}")
+        
+        # Generate with requirements-driven generator
+        print(f"\n{HAMMER} Generating base with intelligent prefab selection...")
+        
+        generator = RequirementsDrivenGenerator(60, 60, self.alpha_prefabs_path)
+        grid = generator.generate_from_requirements(
+            requirements=requirements,
+            design_plan=plan
+        )
+        self.last_grid = grid
+        
+        # Save visualization
+        self.save_visualization(grid, "smart_generated.png")
+        print(f"\n{SUCCESS} Smart-generated base saved to smart_generated.png")
+        print("This base uses real RimWorld prefabs matched to your requirements!")
+    
     def ai_design_base(self):
         """Use Claude AI to design base"""
         print("\n" + "-" * 40)
@@ -433,19 +515,18 @@ class RimWorldAssistant:
                 self.generate_from_ai_plan(plan)
     
     def generate_from_ai_plan(self, plan):
-        """Generate base from AI plan"""
+        """Generate base from AI plan using requirements-driven generator"""
         if not self.alpha_prefabs_path:
             print("Cannot generate without AlphaPrefabs mod")
             return
         
-        # Use plan to guide generation
-        categories = list(set(spec.room_type for spec in plan.room_specs))[:5]
+        print("\nGenerating base from AI design plan...")
         
-        generator = EnhancedHybridGenerator(60, 60, self.alpha_prefabs_path)
-        grid = generator.generate_enhanced(
-            usage_modes=[PrefabUsageMode.COMPLETE, PrefabUsageMode.PARTIAL],
-            prefab_density=0.5
-        )
+        # Use the new requirements-driven generator
+        generator = RequirementsDrivenGenerator(60, 60, self.alpha_prefabs_path)
+        
+        # Generate using the design plan
+        grid = generator.generate_from_requirements(design_plan=plan)
         self.last_grid = grid
         
         self.save_visualization(grid, "ai_designed.png")
@@ -531,8 +612,10 @@ class RimWorldAssistant:
     
     def save_visualization(self, grid, filename):
         """Save grid as image"""
-        from scripts.test_hybrid_generation import visualize_grid
-        visualize_grid(grid, filename)
+        with spinner(f"Saving visualization to {filename}"):
+            from src.visualization import BaseVisualizer
+            visualizer = BaseVisualizer(scale=10, show_grid=True)
+            visualizer.visualize(grid, filename, title="Generated RimWorld Base", show_legend=True)
 
 
 def main():

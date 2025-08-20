@@ -5,6 +5,7 @@ Uses Claude to generate detailed base plans based on requirements.
 
 import os
 import json
+import time
 from typing import Dict, List, Optional, Tuple
 from dataclasses import dataclass, asdict
 from pathlib import Path
@@ -15,6 +16,16 @@ try:
 except ImportError:
     ANTHROPIC_AVAILABLE = False
     print("Note: anthropic package not installed. Using fallback designs.")
+
+try:
+    from src.utils.progress import spinner
+except ImportError:
+    # Fallback if progress utils not available
+    from contextlib import contextmanager
+    @contextmanager
+    def spinner(message):
+        print(f"{message}...")
+        yield
 
 
 @dataclass
@@ -87,20 +98,25 @@ class ClaudeBaseDesigner:
         prompt = self._create_design_prompt(request)
         
         try:
-            response = self.client.messages.create(
-                model="claude-3-haiku-20240307",  # Using Haiku for cost efficiency
-                max_tokens=2000,
-                temperature=0.7,
-                messages=[
-                    {"role": "user", "content": prompt}
-                ]
-            )
+            with spinner("Requesting base design from Claude AI"):
+                response = self.client.messages.create(
+                    model="claude-3-haiku-20240307",  # Using Haiku for cost efficiency
+                    max_tokens=2000,
+                    temperature=0.7,
+                    messages=[
+                        {"role": "user", "content": prompt}
+                    ]
+                )
+                time.sleep(0.5)  # Give spinner time to show
+            
+            print("✅ Received AI design plan")
             
             # Parse Claude's response
             return self._parse_claude_response(response.content[0].text)
             
         except Exception as e:
-            print(f"Claude API error: {e}")
+            print(f"⚠️ Claude API error: {e}")
+            print("Using fallback design...")
             return self._get_fallback_design(request)
     
     def _create_design_prompt(self, request: BaseDesignRequest) -> str:
