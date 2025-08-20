@@ -1,13 +1,18 @@
 # RimWorld Base Assistant - Interface Guide
 
-## Quick Start
+## 🎨 Enhanced GUI Features (v2)
 
-### Command Line Interface
+### Launching the Enhanced GUI
+
+**Windows:**
+```batch
+start.bat
+# Choose option 2
+```
+
+**Direct Launch:**
 ```bash
-# Run the interactive CLI
-python rimworld_assistant.py
-
-# Or use command-line arguments
+poetry run python rimworld_assistant_gui_v2.py
 python rimworld_assistant.py --generate nlp --request "Create defensive base for 8 colonists" --output my_base.png
 ```
 
