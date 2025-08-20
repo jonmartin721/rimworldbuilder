@@ -85,7 +85,7 @@ def analyze_save_file(file_path: Path):
             buildable_count = 0
             walkable_count = 0
             
-            for tile in list(game_map.terrain.values())[:10000]:
+            for tile in game_map.terrain.values():
                 terrain_types[tile.def_name] = terrain_types.get(tile.def_name, 0) + 1
                 if tile.buildable:
                     buildable_count += 1
