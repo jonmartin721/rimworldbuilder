@@ -19,21 +19,71 @@ class RimWorldSaveParser:
     def __init__(self, chunk_size: int = 1024 * 1024):
         self.chunk_size = chunk_size
         self.building_type_mapping = {
+            # Walls
             'Wall': BuildingType.WALL,
+            'WallLamp': BuildingType.WALL,
+            'VTE_WallMountedVent': BuildingType.WALL,
+            
+            # Doors
             'Door': BuildingType.DOOR,
+            'Autodoor': BuildingType.DOOR,
+            
+            # Bridges and Floors
+            'Bridge': BuildingType.BRIDGE,
+            'HeavyBridge': BuildingType.BRIDGE,
+            'Frame_HeavyBridge': BuildingType.BRIDGE,
+            'Floor': BuildingType.FLOOR,
+            'Tile': BuildingType.FLOOR,
+            'Carpet': BuildingType.FLOOR,
+            
+            # Furniture
             'Bed': BuildingType.FURNITURE,
+            'DoubleBed': BuildingType.FURNITURE,
             'Table': BuildingType.FURNITURE,
             'Chair': BuildingType.FURNITURE,
+            'DiningChair': BuildingType.FURNITURE,
+            'Dresser': BuildingType.FURNITURE,
+            'EndTable': BuildingType.FURNITURE,
+            'Wardrobe': BuildingType.FURNITURE,
+            
+            # Production
             'CraftingSpot': BuildingType.PRODUCTION,
             'ElectricSmelter': BuildingType.PRODUCTION,
             'FabricationBench': BuildingType.PRODUCTION,
+            'ElectricStove': BuildingType.PRODUCTION,
+            'Brewery': BuildingType.PRODUCTION,
+            'ElectricTailoringBench': BuildingType.PRODUCTION,
+            'ElectricSmithy': BuildingType.PRODUCTION,
+            'AmmoBench': BuildingType.PRODUCTION,
+            
+            # Storage
             'StorageShelf': BuildingType.STORAGE,
+            'Shelf': BuildingType.STORAGE,
+            'Shelf_WeaponRack': BuildingType.STORAGE,
+            
+            # Power
             'Battery': BuildingType.POWER,
             'SolarGenerator': BuildingType.POWER,
+            'PowerConduit': BuildingType.CONDUIT,
+            'HiddenConduit': BuildingType.CONDUIT,
+            
+            # Temperature
             'Heater': BuildingType.TEMPERATURE,
             'Cooler': BuildingType.TEMPERATURE,
+            'AirconIndoorUnit': BuildingType.TEMPERATURE,
+            
+            # Security
             'Turret': BuildingType.SECURITY,
             'Sandbags': BuildingType.SECURITY,
+            'Barricade': BuildingType.SECURITY,
+            
+            # Fences
+            'Fence': BuildingType.FENCE,
+            'AncientFence': BuildingType.FENCE,
+            
+            # Lights
+            'FloodLight': BuildingType.LIGHT,
+            'StandingLamp': BuildingType.LIGHT,
         }
     
     def parse_save_file(self, file_path: Path) -> GameState:
@@ -253,7 +303,7 @@ class RimWorldSaveParser:
             if not pos:
                 continue
             
-            if 'Building' in thing_class or self._is_building(def_name):
+            if 'Building' in thing_class or 'Frame' in thing_class or self._is_building(def_name):
                 building = self._parse_building(thing, thing_id, def_name, pos)
                 if building:
                     game_map.buildings.append(building)
@@ -291,10 +341,15 @@ class RimWorldSaveParser:
         if health is not None and health.text:
             building.hit_points = int(health.text)
         
-        for prefix, b_type in self.building_type_mapping.items():
-            if prefix in def_name:
-                building.building_type = b_type
-                break
+        # Try exact match first
+        if def_name in self.building_type_mapping:
+            building.building_type = self.building_type_mapping[def_name]
+        else:
+            # Try partial matches
+            for key, b_type in self.building_type_mapping.items():
+                if key in def_name:
+                    building.building_type = b_type
+                    break
         
         if 'Blueprint' in def_name:
             building.is_blueprint = True
