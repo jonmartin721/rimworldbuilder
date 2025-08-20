@@ -1,6 +1,7 @@
 """
 Room templates for RimWorld base generation.
 Defines common room patterns and layouts.
+Updated for Realistic Rooms mod dimensions.
 """
 
 from typing import List, Dict, Tuple, Optional
@@ -9,29 +10,50 @@ from enum import Enum
 
 
 class RoomType(Enum):
-    """Types of rooms in RimWorld"""
-    BEDROOM_SMALL = "bedroom_small"  # 3x3 internal
-    BEDROOM_MEDIUM = "bedroom_medium"  # 4x4 internal
-    BEDROOM_LARGE = "bedroom_large"  # 5x5 internal
-    BARRACKS = "barracks"  # 6x8 internal, multiple beds
+    """Types of rooms in RimWorld - optimized for Realistic Rooms mod"""
+    # Bedrooms (Realistic Rooms: 6 tiles min, 12 standard, 16 good)
+    BEDROOM_SMALL = "bedroom_small"  # 2x3 internal (6 tiles) - minimum viable
+    BEDROOM_MEDIUM = "bedroom_medium"  # 3x4 internal (12 tiles) - standard
+    BEDROOM_LARGE = "bedroom_large"  # 4x4 internal (16 tiles) - good mood
+    BEDROOM_LUXURY = "bedroom_luxury"  # 5x5 internal (25 tiles) - spacious
+    BARRACKS = "barracks"  # 5x6 internal (30 tiles), multiple beds
     
-    KITCHEN = "kitchen"  # 4x5 internal, stoves and counters
-    DINING_HALL = "dining_hall"  # 6x6 internal, tables and chairs
-    FREEZER = "freezer"  # 4x4 internal, for food storage
+    # Kitchen & Dining (Realistic Rooms: smaller is fine)
+    KITCHEN = "kitchen"  # 3x4 internal (12 tiles) - standard size
+    DINING_HALL = "dining_hall"  # 4x5 internal (20 tiles) - good size
+    FREEZER = "freezer"  # 3x3 internal (9 tiles) - compact
     
-    WORKSHOP = "workshop"  # 5x5 internal, crafting benches
-    RESEARCH_LAB = "research_lab"  # 4x5 internal, research benches
-    HOSPITAL = "hospital"  # 5x6 internal, medical beds
+    # Workshops (Realistic Rooms: 28 tiles standard)
+    WORKSHOP_SMALL = "workshop_small"  # 4x4 internal (16 tiles)
+    WORKSHOP = "workshop"  # 4x7 internal (28 tiles) - standard
+    WORKSHOP_LARGE = "workshop_large"  # 5x9 internal (45 tiles) - multiple benches
     
-    STORAGE_SMALL = "storage_small"  # 3x3 internal
-    STORAGE_LARGE = "storage_large"  # 6x6 internal
+    # Medical (Near entrance)
+    HOSPITAL = "hospital"  # 4x5 internal (20 tiles) - standard
     
-    POWER_ROOM = "power_room"  # 3x4 internal, batteries
-    GENERATOR_ROOM = "generator_room"  # 4x4 internal, generators
+    # Research
+    RESEARCH_LAB = "research_lab"  # 4x4 internal (16 tiles) - standard
     
-    REC_ROOM = "rec_room"  # 5x5 internal, recreation items
-    PRISON_CELL = "prison_cell"  # 3x3 internal
+    # Storage
+    STORAGE_SMALL = "storage_small"  # 3x3 internal (9 tiles)
+    STORAGE_MEDIUM = "storage_medium"  # 4x5 internal (20 tiles)
+    STORAGE_LARGE = "storage_large"  # 5x7 internal (35 tiles)
     
+    # Power
+    POWER_ROOM = "power_room"  # 3x3 internal (9 tiles), batteries
+    GENERATOR_ROOM = "generator_room"  # 3x4 internal (12 tiles)
+    
+    # Recreation (Central location)
+    REC_ROOM = "rec_room"  # 4x5 internal (20 tiles) - standard
+    
+    # Prison (Isolated)
+    PRISON_CELL = "prison_cell"  # 3x3 internal (9 tiles) - standard
+    
+    # Killbox components
+    KILLBOX_ENTRANCE = "killbox_entrance"  # 1-2 wide funnel
+    KILLBOX_CORRIDOR = "killbox_corridor"  # Kill zone
+    
+    # Traffic
     CORRIDOR = "corridor"  # 2 wide
     HALLWAY = "hallway"  # 3 wide
 
