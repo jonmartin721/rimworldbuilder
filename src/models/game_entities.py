@@ -24,6 +24,11 @@ class BuildingType(str, Enum):
     POWER = "Power"
     TEMPERATURE = "Temperature"
     SECURITY = "Security"
+    BRIDGE = "Bridge"
+    FLOOR = "Floor"
+    CONDUIT = "Conduit"
+    FENCE = "Fence"
+    LIGHT = "Light"
     MISC = "Misc"
 
 
