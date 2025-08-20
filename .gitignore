@@ -115,3 +115,6 @@ Thumbs.db
 test_output/
 output/
 results/
+
+# External mod repositories
+data/AlphaPrefabs/
