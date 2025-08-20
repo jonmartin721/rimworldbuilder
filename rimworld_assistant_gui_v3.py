@@ -263,7 +263,9 @@ class InteractiveMapCanvas(Canvas):
                 if building.is_frame:
                     frame_count += 1
                 x = int(building.position.x * scale_x)
-                y = int(building.position.y * scale_y)
+                # Fix Y-axis flip - RimWorld Y increases downward, Canvas Y increases downward too
+                # But the map appears flipped, so we need to invert Y
+                y = int((map_height - building.position.y - 1) * scale_y)
                 
                 # Determine color based on building type
                 color = ModernTheme.TEXT_MUTED
@@ -290,29 +292,44 @@ class InteractiveMapCanvas(Canvas):
                 elif "Turret" in building.def_name:
                     color = "#FF0000"
                     size = 4
-                elif "Frame_HeavyBridge" in building.def_name or "HeavyBridge" in building.def_name or "Bridge" in building.def_name:
-                    color = "#00FFFF"  # Cyan for bridges (more visible)
-                    size = 6  # Larger size
-                    # Draw with outline for visibility
+                elif building.def_name == "HeavyBridge":
+                    # Completed heavy bridge - bright green with thick border
+                    color = "#00FF00"  # Bright green for completed
+                    size = 8  # Large size
+                    # Draw with thick outline for visibility
                     self.create_rectangle(x-size//2-1, y-size//2-1, x+size//2+1, y+size//2+1,
-                                         fill="", outline="#FFFFFF", width=1, tags="bridge_outline")
+                                         fill=color, outline="#FFFFFF", width=2, tags="bridge_complete")
+                    continue  # Skip the default rectangle drawing
+                elif "Frame_HeavyBridge" in building.def_name:
+                    # Bridge blueprint/frame - cyan with dashed outline
+                    color = "#00FFFF"  # Cyan for frames
+                    size = 6
+                    self.create_rectangle(x-size//2, y-size//2, x+size//2, y+size//2,
+                                         fill=color, outline="#FFFFFF", width=1, dash=(3,3), tags="bridge_frame")
+                    continue  # Skip the default rectangle drawing
+                elif "Bridge" in building.def_name:
+                    # Other bridge types
+                    color = "#40E0D0"  # Turquoise
+                    size = 6
                 elif building.is_frame:
-                    color = "#FFFF00"  # Yellow for all frames
+                    color = "#FFFF00"  # Yellow for other frames
                     size = 4
                 
-                # Draw building as small rectangle
+                # Draw building as small rectangle (for non-bridge items)
                 self.create_rectangle(x-size//2, y-size//2, x+size//2, y+size//2,
                                      fill=color, outline="", tags="building")
             
             # Log what we found
             print(f"Map loaded: Found {bridge_count} bridges and {frame_count} frames out of {len(first_map.buildings)} total buildings")
+            print("Note: Completed heavy bridges are stored as terrain tiles which are compressed - only showing bridge frames/blueprints")
             
             # Draw colonists
             if hasattr(first_map, 'colonists'):
                 for colonist in first_map.colonists:
                     if hasattr(colonist, 'position'):
                         x = int(colonist.position.x * scale_x)
-                        y = int(colonist.position.y * scale_y)
+                        # Apply same Y-flip as buildings
+                        y = int((map_height - colonist.position.y - 1) * scale_y)
                         self.create_oval(x-3, y-3, x+3, y+3,
                                        fill="#00FF00", outline="#FFFFFF", width=1, tags="colonist")
     
@@ -401,6 +418,7 @@ class RimWorldAssistantGUI:
         self.save_path = None
         self.last_grid = None
         self.selected_area = None
+        self.current_view = "map"  # "map" or "generated"
         
         # Visualizer with layer support
         self.visualizer = LayeredVisualizer(scale=10)
@@ -711,6 +729,10 @@ Make it efficient with good traffic flow and follow RimWorld best practices."""
         tk.Label(parent, text="Layer Controls", font=ModernTheme.FONT_HEADING,
                 bg=ModernTheme.BG_APP, fg=ModernTheme.TEXT_PRIMARY).pack(pady=(10, 5))
         
+        # Clarification text
+        tk.Label(parent, text="(For generated bases)", font=(ModernTheme.FONT_FAMILY, 8),
+                bg=ModernTheme.BG_APP, fg=ModernTheme.TEXT_MUTED).pack(pady=(0, 5))
+        
         # Layer checkboxes frame - single column for side panel
         controls_frame = tk.Frame(parent, bg=ModernTheme.BG_APP)
         controls_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
@@ -767,8 +789,8 @@ Make it efficient with good traffic flow and follow RimWorld best practices."""
         """Handle layer visibility toggle"""
         enabled = self.layer_vars[layer_id].get()
         self.visualizer.set_layer_visibility(layer_id, enabled)
-        # Auto-update preview when toggling layers
-        if self.last_grid is not None:
+        # Auto-update preview when toggling layers (only for generated bases)
+        if self.last_grid is not None and self.current_view == "generated":
             self.update_layer_preview()
     
     def show_all_layers(self):
@@ -787,10 +809,11 @@ Make it efficient with good traffic flow and follow RimWorld best practices."""
     
     def update_layer_preview(self):
         """Update the preview with current layer settings"""
-        if self.last_grid is not None:
+        if self.last_grid is not None and self.current_view == "generated":
+            # Only update if we're viewing a generated base
             # Create visualization with current layer settings
             img = self.visualizer.visualize(self.last_grid, 
-                                          show_legend=True, flip_y=True)
+                                          show_legend=True, flip_y=False)
             
             # Create smaller version for display
             display_size = (600, 600)
@@ -874,6 +897,7 @@ Make it efficient with good traffic flow and follow RimWorld best practices."""
         if self.game_state and self.game_state.maps:
             first_map = self.game_state.maps[0]
             self.map_canvas.load_map(self.game_state)
+            self.current_view = "map"  # Set to map view when loading save
             
             # Count colonists and update default text
             colonist_count = len(first_map.colonists) if hasattr(first_map, 'colonists') else 10
@@ -1031,9 +1055,11 @@ Make it efficient with good traffic flow and follow RimWorld best practices."""
     
     def display_generation(self, grid):
         """Display generated base"""
-        # Use the layered visualizer with Y-flip fix
+        self.current_view = "generated"  # Set to generated view
+        
+        # Use the layered visualizer without flip (we fixed it in the map loading instead)
         img = self.visualizer.visualize(grid, title="Generated Base", 
-                                       show_legend=True, flip_y=True)
+                                       show_legend=True, flip_y=False)
         img.save("generated_base.png")
         
         # Create smaller version for display
@@ -1048,10 +1074,7 @@ Make it efficient with good traffic flow and follow RimWorld best practices."""
         self.map_canvas.create_image(300, 300, image=photo)
         self.map_canvas.image = photo  # Keep reference
         
-        self.selection_label.config(text="Base generated successfully!", fg=ModernTheme.SUCCESS)
-        
-        # Update layer display
-        self.update_layer_preview()
+        self.selection_label.config(text="Base generated successfully! Layer controls are now active.", fg=ModernTheme.SUCCESS)
     
     def on_generation_complete(self):
         """Clean up after generation"""
@@ -1089,7 +1112,7 @@ Make it efficient with good traffic flow and follow RimWorld best practices."""
                 # Export as PNG with high quality using layered visualizer
                 img = self.visualizer.visualize(self.last_grid, 
                                               title=f"RimWorld Base {self.base_width.get()}×{self.base_height.get()}", 
-                                              show_legend=True, flip_y=True)
+                                              show_legend=True, flip_y=False)
                 img.save(file_path, quality=95)
             
             self.update_status(f"Exported to {Path(file_path).name}")
