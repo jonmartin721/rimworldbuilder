@@ -16,6 +16,7 @@ from src.generators.alpha_prefab_parser import AlphaPrefabLayout
 from src.ai.claude_base_designer import BaseDesignPlan, RoomSpec
 from src.nlp.base_generator_nlp import BaseRequirements
 from src.generators.wfc_generator import TileType
+from src.generators.rimworld_best_practices import RimWorldBestPractices, ModConfig
 from src.utils.progress import GenerationLogger, ProgressBar, StepProgress, spinner
 
 
@@ -33,8 +34,12 @@ class RequirementsDrivenGenerator(EnhancedHybridGenerator):
     
     def __init__(self, width: int, height: int,
                  alpha_prefabs_path: Optional[Path] = None,
-                 learned_patterns_file: Optional[Path] = None):
+                 learned_patterns_file: Optional[Path] = None,
+                 mod_config: ModConfig = ModConfig.REALISTIC_ROOMS):
         super().__init__(width, height, alpha_prefabs_path, learned_patterns_file)
+        
+        self.best_practices = RimWorldBestPractices()
+        self.mod_config = mod_config
         
         # Room type mapping from specs to prefab categories
         self.room_type_mapping = {
@@ -142,35 +147,58 @@ class RequirementsDrivenGenerator(EnhancedHybridGenerator):
         return self.grid
     
     def _requirements_to_design_plan(self, requirements: BaseRequirements) -> BaseDesignPlan:
-        """Convert simple requirements to a design plan"""
+        """Convert simple requirements to a design plan using best practices"""
         room_specs = []
         
-        # Add bedrooms
+        # Add bedrooms with Realistic Rooms dimensions
         if requirements.num_bedrooms > 0:
+            bedroom_dims = self.best_practices.get_room_dimensions(
+                "bedroom", self.mod_config, "standard"
+            )
             room_specs.append(RoomSpec(
                 room_type="bedroom",
-                size=(4, 3),
+                size=bedroom_dims,
                 quantity=requirements.num_bedrooms,
-                priority=1
+                priority=6,  # Lower priority for edge placement
+                adjacency_preferences=["corridor"]
             ))
         
-        # Add other rooms based on flags
+        # Add other rooms based on flags with best practices
         if requirements.include_kitchen:
+            kitchen_dims = self.best_practices.get_room_dimensions(
+                "kitchen", self.mod_config, "standard"
+            )
             room_specs.append(RoomSpec(
                 room_type="kitchen",
-                size=(5, 4),
+                size=kitchen_dims,
                 quantity=1,
-                priority=2,
-                adjacency_preferences=["dining", "storage"]
+                priority=2,  # High priority for central placement
+                adjacency_preferences=["freezer", "dining"],
+                special_features=["sterile_tiles"]
             ))
-        
-        if requirements.include_dining:
+            
+            # Always add freezer next to kitchen
+            freezer_dims = self.best_practices.get_room_dimensions(
+                "kitchen", self.mod_config, "min"  # Freezer can be smaller
+            )
             room_specs.append(RoomSpec(
-                room_type="dining",
-                size=(6, 4),
+                room_type="freezer",
+                size=freezer_dims,
                 quantity=1,
                 priority=2,
                 adjacency_preferences=["kitchen"]
+            ))
+        
+        if requirements.include_dining:
+            dining_dims = self.best_practices.get_room_dimensions(
+                "dining", self.mod_config, "standard"
+            )
+            room_specs.append(RoomSpec(
+                room_type="dining",
+                size=dining_dims,
+                quantity=1,
+                priority=2,  # Central hub
+                adjacency_preferences=["kitchen", "recreation"]
             ))
         
         if requirements.include_storage:
@@ -182,11 +210,16 @@ class RequirementsDrivenGenerator(EnhancedHybridGenerator):
             ))
         
         if requirements.num_workrooms > 0:
+            workshop_dims = self.best_practices.get_room_dimensions(
+                "workshop", self.mod_config, "standard"
+            )
             room_specs.append(RoomSpec(
                 room_type="workshop",
-                size=(5, 5),
+                size=workshop_dims,
                 quantity=requirements.num_workrooms,
-                priority=3
+                priority=4,  # Can be peripheral
+                adjacency_preferences=["workshop", "storage"],  # Cluster workshops
+                special_features=["toolbox_optimization"]
             ))
         
         if requirements.include_rec:
@@ -198,12 +231,16 @@ class RequirementsDrivenGenerator(EnhancedHybridGenerator):
             ))
         
         if requirements.include_medical:
+            hospital_dims = self.best_practices.get_room_dimensions(
+                "hospital", self.mod_config, "standard"
+            )
             room_specs.append(RoomSpec(
                 room_type="medical",
-                size=(4, 4),
+                size=hospital_dims,
                 quantity=1,
-                priority=2,
-                special_features=["near_entrance"]
+                priority=1,  # Highest priority for entrance placement
+                special_features=["near_entrance", "sterile_tiles"],
+                adjacency_preferences=["entrance", "storage"]
             ))
         
         return BaseDesignPlan(
@@ -362,26 +399,54 @@ class RequirementsDrivenGenerator(EnhancedHybridGenerator):
         return False
     
     def _score_position(self, x: int, y: int, spec: RoomSpec, placed: List[PrefabMatch]) -> float:
-        """Score a position based on room requirements"""
+        """Score a position based on room requirements and best practices"""
         score = 0.0
         
-        # Prefer central locations for important rooms
         center_x, center_y = self.width // 2, self.height // 2
         dist_to_center = ((x - center_x)**2 + (y - center_y)**2) ** 0.5
         max_dist = ((self.width/2)**2 + (self.height/2)**2) ** 0.5
         
-        if spec.priority <= 2:  # High priority rooms
+        # Apply best practices for room placement
+        if spec.room_type == "bedroom":
+            # Bedrooms should be on edges (best practice)
+            edge_dist = min(x, y, self.width - x, self.height - y)
+            score += (1 - edge_dist / (self.width // 2)) * 3
+        elif spec.room_type in ["kitchen", "dining", "recreation"]:
+            # Central hub rooms (best practice)
+            score += (1 - dist_to_center / max_dist) * 4
+        elif spec.room_type == "workshop":
+            # Workshops can be peripheral but should cluster
+            for other in placed:
+                if other.room_spec.room_type == "workshop":
+                    workshop_dist = abs(x - other.position[0]) + abs(y - other.position[1])
+                    if workshop_dist < 10:
+                        score += 3  # Bonus for clustering
+        elif spec.priority <= 2:  # High priority rooms
             score += (1 - dist_to_center / max_dist) * 3
         else:  # Low priority can be on edges
             score += (dist_to_center / max_dist) * 2
         
-        # Check adjacency preferences
+        # Check adjacency preferences using best practices
         if spec.adjacency_preferences:
             for other_match in placed:
                 if other_match.room_spec.room_type in spec.adjacency_preferences:
                     # Calculate distance to other room
-                    # (This is simplified - would need actual room positions)
-                    score += 2.0
+                    if hasattr(other_match, 'position'):
+                        dist = abs(x - other_match.position[0]) + abs(y - other_match.position[1])
+                        if dist < 3:  # Adjacent
+                            score += 5.0
+                        elif dist < 10:  # Nearby
+                            score += 2.0
+        
+        # Kitchen-freezer must be adjacent (best practice)
+        if spec.room_type == "freezer":
+            for other in placed:
+                if other.room_spec.room_type == "kitchen" and hasattr(other, 'position'):
+                    dist = abs(x - other.position[0]) + abs(y - other.position[1])
+                    if dist <= 1:
+                        score += 10.0  # Strong bonus for adjacency
+                    else:
+                        score -= 5.0  # Penalty for separation
         
         # Medical rooms near edge (for quick access)
         if spec.room_type == "medical" and "near_entrance" in spec.special_features:
@@ -416,24 +481,74 @@ class RequirementsDrivenGenerator(EnhancedHybridGenerator):
         pass
     
     def _add_defensive_elements(self, defense_strategy: str):
-        """Add defensive structures based on strategy"""
-        if "killbox" in defense_strategy.lower():
-            # Add killbox at entrance
-            # This would need more sophisticated implementation
-            pass
+        """Add defensive structures based on strategy and best practices"""
+        defense_level = defense_strategy.lower()
         
-        # Add walls on perimeter
+        # Add perimeter walls first
+        self._add_perimeter_walls()
+        
+        if "killbox" in defense_level or defense_level in ["high", "extreme"]:
+            self._add_killbox()
+        elif defense_level == "medium":
+            self._add_basic_defenses()
+    
+    def _add_perimeter_walls(self):
+        """Add walls around the perimeter with strategic openings"""
+        # Add walls but leave openings for killbox/entrance
+        entrance_x = self.width // 2
+        entrance_width = 3
+        
         for x in range(self.width):
-            if self.grid[0, x] == 0:
-                self.grid[0, x] = TileType.WALL
+            # Top wall with entrance
+            if abs(x - entrance_x) > entrance_width:
+                if self.grid[0, x] == 0:
+                    self.grid[0, x] = TileType.WALL
+            
+            # Bottom wall (solid)
             if self.grid[self.height-1, x] == 0:
                 self.grid[self.height-1, x] = TileType.WALL
         
+        # Side walls (solid)
         for y in range(self.height):
             if self.grid[y, 0] == 0:
                 self.grid[y, 0] = TileType.WALL
             if self.grid[y, self.width-1] == 0:
                 self.grid[y, self.width-1] = TileType.WALL
+    
+    def _add_killbox(self):
+        """Add a properly designed killbox at the main entrance"""
+        # Use best practices for killbox design
+        killbox_layout = self.best_practices.generate_killbox_layout(
+            width=min(15, self.width // 3),
+            height=min(20, self.height // 3)
+        )
+        
+        # Find best position (typically at map edge)
+        entrance_x = self.width // 2 - killbox_layout.shape[1] // 2
+        entrance_y = 0
+        
+        # Place killbox
+        kb_height, kb_width = killbox_layout.shape
+        for y in range(min(kb_height, self.height)):
+            for x in range(min(kb_width, self.width)):
+                grid_x = entrance_x + x
+                grid_y = entrance_y + y
+                
+                if 0 <= grid_x < self.width and 0 <= grid_y < self.height:
+                    if killbox_layout[y, x] != 0:
+                        self.grid[grid_y, grid_x] = killbox_layout[y, x]
+    
+    def _add_basic_defenses(self):
+        """Add basic defensive elements for medium defense"""
+        # Add some sandbags/defensive positions near entrance
+        entrance_x = self.width // 2
+        defense_y = 5  # A bit inside from entrance
+        
+        # Add defensive positions
+        for x in range(max(0, entrance_x - 5), min(self.width, entrance_x + 6)):
+            if defense_y < self.height and self.grid[defense_y, x] == 0:
+                if abs(x - entrance_x) > 1:  # Don't block path
+                    self.grid[defense_y, x] = TileType.FURNITURE  # Sandbags
     
     def _get_default_plan(self) -> BaseDesignPlan:
         """Get a default plan when none provided"""
