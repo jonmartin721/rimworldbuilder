@@ -154,7 +154,7 @@ def visualize_prefab(design, filename):
     try:
         font = ImageFont.truetype("arial.ttf", 10)
         draw.text((5, 5), design.name, fill=(255, 255, 255), font=font)
-    except (IOError, OSError):
+    except OSError:
         pass
 
     img.save(filename)

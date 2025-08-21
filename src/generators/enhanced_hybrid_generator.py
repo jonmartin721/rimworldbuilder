@@ -5,7 +5,6 @@ Provides more organic and varied generation by mixing prefab concepts at differe
 
 import numpy as np
 import random
-from typing import List, Dict, Tuple, Optional
 from pathlib import Path
 from dataclasses import dataclass
 from enum import Enum
@@ -31,7 +30,7 @@ class PrefabFragment:
     source_prefab: str
     fragment_type: str  # "room", "decoration", "furniture_arrangement", "wall_pattern"
     layout: np.ndarray
-    metadata: Dict
+    metadata: dict
 
 
 class EnhancedHybridGenerator(HybridPrefabGenerator):
@@ -49,8 +48,8 @@ class EnhancedHybridGenerator(HybridPrefabGenerator):
         self,
         width: int,
         height: int,
-        alpha_prefabs_path: Optional[Path] = None,
-        learned_patterns_file: Optional[Path] = None,
+        alpha_prefabs_path: Path | None = None,
+        learned_patterns_file: Path | None = None,
         game_state=None,
     ):
         super().__init__(width, height, alpha_prefabs_path, learned_patterns_file)
@@ -58,8 +57,8 @@ class EnhancedHybridGenerator(HybridPrefabGenerator):
             game_state  # Used ONLY for terrain analysis, NOT for preserving buildings
         )
 
-        self.prefab_fragments: Dict[str, List[PrefabFragment]] = {}
-        self.decorative_patterns: Dict[str, np.ndarray] = {}
+        self.prefab_fragments: dict[str, list[PrefabFragment]] = {}
+        self.decorative_patterns: dict[str, np.ndarray] = {}
 
         if alpha_prefabs_path:
             self._extract_prefab_components()
@@ -92,7 +91,7 @@ class EnhancedHybridGenerator(HybridPrefabGenerator):
                         self.prefab_fragments[key] = []
                     self.prefab_fragments[key].append(arrangement)
 
-    def _extract_rooms(self, prefab: AlphaPrefabLayout) -> List[PrefabFragment]:
+    def _extract_rooms(self, prefab: AlphaPrefabLayout) -> list[PrefabFragment]:
         """Extract individual rooms from a prefab"""
         rooms = []
 
@@ -135,7 +134,7 @@ class EnhancedHybridGenerator(HybridPrefabGenerator):
 
     def _extract_decorative_patterns(
         self, prefab: AlphaPrefabLayout
-    ) -> Dict[str, np.ndarray]:
+    ) -> dict[str, np.ndarray]:
         """Extract decorative patterns like floor patterns, wall decorations"""
         patterns = {}
 
@@ -157,7 +156,7 @@ class EnhancedHybridGenerator(HybridPrefabGenerator):
 
     def _extract_furniture_arrangements(
         self, prefab: AlphaPrefabLayout
-    ) -> List[PrefabFragment]:
+    ) -> list[PrefabFragment]:
         """Extract furniture placement patterns"""
         arrangements = []
         layout = self._layout_to_array(prefab)
@@ -195,8 +194,8 @@ class EnhancedHybridGenerator(HybridPrefabGenerator):
 
     def generate_enhanced(
         self,
-        buildable_mask: Optional[np.ndarray] = None,
-        usage_modes: List[PrefabUsageMode] = None,
+        buildable_mask: np.ndarray | None = None,
+        usage_modes: list[PrefabUsageMode] = None,
         prefab_density: float = 0.3,
         decoration_density: float = 0.2,
     ) -> np.ndarray:
@@ -459,7 +458,7 @@ class EnhancedHybridGenerator(HybridPrefabGenerator):
 
     def _bresenham_line(
         self, x1: int, y1: int, x2: int, y2: int
-    ) -> List[Tuple[int, int]]:
+    ) -> list[tuple[int, int]]:
         """Generate points along a line using Bresenham's algorithm"""
         points = []
         dx = abs(x2 - x1)
@@ -492,7 +491,7 @@ class EnhancedHybridGenerator(HybridPrefabGenerator):
                 array[y, x] = self._map_item_to_tile(item).value
         return array
 
-    def _terrain_to_array(self, terrain_grid: List[List[str]]) -> np.ndarray:
+    def _terrain_to_array(self, terrain_grid: list[list[str]]) -> np.ndarray:
         """Convert terrain grid to numpy array"""
         height = len(terrain_grid)
         width = len(terrain_grid[0]) if terrain_grid else 0
@@ -514,7 +513,7 @@ class EnhancedHybridGenerator(HybridPrefabGenerator):
 
     def _flood_fill_room(
         self, layout: np.ndarray, start_x: int, start_y: int, visited: np.ndarray
-    ) -> List[Tuple[int, int]]:
+    ) -> list[tuple[int, int]]:
         """Flood fill to find room tiles"""
         room_tiles = []
         stack = [(start_x, start_y)]
@@ -536,7 +535,7 @@ class EnhancedHybridGenerator(HybridPrefabGenerator):
 
         return room_tiles
 
-    def _find_corner_decorations(self, layout: np.ndarray) -> Optional[np.ndarray]:
+    def _find_corner_decorations(self, layout: np.ndarray) -> np.ndarray | None:
         """Find decorative patterns in corners"""
         # Look for non-wall, non-empty items in corners
         corner_items = []
@@ -554,7 +553,7 @@ class EnhancedHybridGenerator(HybridPrefabGenerator):
 
     def _find_furniture_cluster(
         self, layout: np.ndarray, start_x: int, start_y: int, visited: np.ndarray
-    ) -> List[Tuple[int, int]]:
+    ) -> list[tuple[int, int]]:
         """Find connected furniture items"""
         cluster = []
         stack = [(start_x, start_y)]

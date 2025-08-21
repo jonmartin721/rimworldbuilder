@@ -5,8 +5,7 @@ Allows users to describe their desired base in natural language.
 
 import re
 import numpy as np
-from typing import List, Optional, Tuple
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from src.generators.improved_wfc_generator import ImprovedWFCGenerator
@@ -30,7 +29,7 @@ class BaseRequirements:
     include_prison: bool = False
     defense_level: str = "medium"  # low, medium, high
     style: str = "efficient"  # efficient, spacious, compact, defensive
-    special_requirements: List[str] = None
+    special_requirements: list[str] = field(default_factory=list)
     # Zone-based requirements
     use_outer_areas: bool = False
     agriculture_zones: bool = False
@@ -134,7 +133,7 @@ class BaseGeneratorNLP:
         ],
     }
 
-    def __init__(self, save_path: Optional[str] = None):
+    def __init__(self, save_path: str | None = None):
         """
         Initialize NLP interface.
 
@@ -145,7 +144,7 @@ class BaseGeneratorNLP:
         self.parser = SaveParser() if save_path else None
         self.parse_result = None
 
-        if self.save_path and Path(self.save_path).exists():
+        if self.save_path and Path(self.save_path).exists() and self.parser:
             self.parse_result = self.parser.parse(self.save_path)
 
     def parse_request(self, user_input: str) -> BaseRequirements:
@@ -248,11 +247,11 @@ class BaseGeneratorNLP:
 
         return requirements
 
-    def _check_keywords(self, text: str, keywords: List[str]) -> bool:
+    def _check_keywords(self, text: str, keywords: list[str]) -> bool:
         """Check if any keyword appears in text"""
         return any(keyword in text for keyword in keywords)
 
-    def _extract_special_requirements(self, text: str) -> List[str]:
+    def _extract_special_requirements(self, text: str) -> list[str]:
         """Extract any special requirements from text"""
         special = []
 
@@ -297,7 +296,7 @@ class BaseGeneratorNLP:
 
     def generate_base(
         self, user_input: str, width: int = 50, height: int = 50
-    ) -> Tuple[np.ndarray, str]:
+    ) -> tuple[np.ndarray, str]:
         """
         Generate a base from natural language description.
 

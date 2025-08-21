@@ -4,7 +4,6 @@ Generates optimized base designs respecting building constraints and adjacency r
 """
 
 import random
-from typing import List, Dict, Set, Tuple, Optional
 from dataclasses import dataclass
 from enum import Enum
 import logging
@@ -39,10 +38,10 @@ class TileType(Enum):
 class Tile:
     """Represents a single tile in the WFC grid"""
 
-    position: Tuple[int, int]
+    position: tuple[int, int]
     collapsed: bool = False
-    possible_types: Set[TileType] = None
-    final_type: Optional[TileType] = None
+    possible_types: set[TileType] = None
+    final_type: TileType | None = None
 
     def __post_init__(self):
         if self.possible_types is None:
@@ -57,10 +56,10 @@ class Tile:
 class WFCGenerator:
     """Wave Function Collapse generator for RimWorld bases"""
 
-    def __init__(self, width: int, height: int, seed: Optional[int] = None):
+    def __init__(self, width: int, height: int, seed: int | None = None):
         self.width = width
         self.height = height
-        self.grid: List[List[Tile]] = []
+        self.grid: list[list[Tile]] = []
         self.random = random.Random(seed)
 
         # Initialize adjacency rules
@@ -79,7 +78,7 @@ class WFCGenerator:
                 row.append(tile)
             self.grid.append(row)
 
-    def _create_adjacency_rules(self) -> Dict[TileType, Dict[str, Set[TileType]]]:
+    def _create_adjacency_rules(self) -> dict[TileType, dict[str, set[TileType]]]:
         """
         Define which tile types can be adjacent to each other.
         Returns dict mapping each TileType to allowed neighbors in each direction.
@@ -309,13 +308,13 @@ class WFCGenerator:
 
         return rules
 
-    def get_tile(self, x: int, y: int) -> Optional[Tile]:
+    def get_tile(self, x: int, y: int) -> Tile | None:
         """Get tile at position, returns None if out of bounds"""
         if 0 <= x < self.width and 0 <= y < self.height:
             return self.grid[y][x]
         return None
 
-    def get_neighbors(self, x: int, y: int) -> Dict[str, Optional[Tile]]:
+    def get_neighbors(self, x: int, y: int) -> dict[str, Tile | None]:
         """Get neighboring tiles"""
         return {
             "north": self.get_tile(x, y - 1),
@@ -378,7 +377,7 @@ class WFCGenerator:
 
         return True
 
-    def find_lowest_entropy_tile(self) -> Optional[Tile]:
+    def find_lowest_entropy_tile(self) -> Tile | None:
         """Find uncollapsed tile with lowest entropy (fewest possibilities)"""
         min_entropy = float("inf")
         candidates = []
@@ -397,7 +396,7 @@ class WFCGenerator:
         return None
 
     def generate(
-        self, buildable_positions: Optional[Set[Tuple[int, int]]] = None
+        self, buildable_positions: set[tuple[int, int]] | None = None
     ) -> bool:
         """
         Generate a base layout using Wave Function Collapse.
@@ -454,7 +453,7 @@ class WFCGenerator:
         logger.info(f"Successfully generated base in {iteration} iterations")
         return True
 
-    def to_building_grid(self) -> List[List[Optional[BuildingType]]]:
+    def to_building_grid(self) -> list[list[BuildingType | None]]:
         """Convert WFC grid to BuildingType grid for visualization"""
         building_grid = []
 

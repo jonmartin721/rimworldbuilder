@@ -5,7 +5,6 @@ Integrates room templates and adjacency rules from analyzed AlphaPrefabs data.
 
 import numpy as np
 import random
-from typing import List, Dict, Tuple, Optional
 import json
 from pathlib import Path
 
@@ -17,7 +16,7 @@ class ImprovedWFCGenerator(WFCGenerator):
     """Enhanced WFC generator using learned patterns"""
 
     def __init__(
-        self, width: int, height: int, learned_patterns_file: Optional[Path] = None
+        self, width: int, height: int, learned_patterns_file: Path | None = None
     ):
         """
         Initialize improved generator with learned patterns.
@@ -32,7 +31,7 @@ class ImprovedWFCGenerator(WFCGenerator):
         # Load learned patterns if provided
         self.learned_patterns = {}
         if learned_patterns_file and learned_patterns_file.exists():
-            with open(learned_patterns_file, "r") as f:
+            with open(learned_patterns_file) as f:
                 self.learned_patterns = json.load(f)
             self._update_adjacency_from_patterns()
 
@@ -86,7 +85,7 @@ class ImprovedWFCGenerator(WFCGenerator):
 
     def generate_with_templates(
         self,
-        buildable_mask: Optional[np.ndarray] = None,
+        buildable_mask: np.ndarray | None = None,
         num_bedrooms: int = 4,
         num_workrooms: int = 2,
         include_kitchen: bool = True,
@@ -139,7 +138,7 @@ class ImprovedWFCGenerator(WFCGenerator):
         include_kitchen: bool,
         include_rec: bool,
         include_storage: bool,
-    ) -> List[Dict]:
+    ) -> list[dict]:
         """Plan optimal room layout based on learned patterns"""
         room_plan = []
 
@@ -210,7 +209,7 @@ class ImprovedWFCGenerator(WFCGenerator):
 
         return room_plan
 
-    def _get_learned_room_sizes(self) -> Dict[TileType, Tuple[int, int]]:
+    def _get_learned_room_sizes(self) -> dict[TileType, tuple[int, int]]:
         """Get optimal room sizes from learned patterns"""
         sizes = {}
 
@@ -255,7 +254,7 @@ class ImprovedWFCGenerator(WFCGenerator):
 
         return sizes
 
-    def _place_room_template(self, room_info: Dict) -> bool:
+    def _place_room_template(self, room_info: dict) -> bool:
         """Place a room template on the grid"""
         room_type = room_info["type"]
         width, height = room_info["size"]
@@ -294,7 +293,7 @@ class ImprovedWFCGenerator(WFCGenerator):
 
     def _find_room_placement(
         self, width: int, height: int, is_central: bool
-    ) -> Optional[Tuple[int, int]]:
+    ) -> tuple[int, int] | None:
         """Find valid position for room placement"""
         # Central rooms: place near center
         # Edge rooms: place along edges
@@ -406,7 +405,7 @@ class ImprovedWFCGenerator(WFCGenerator):
                 if self._should_connect_rooms(room1, room2):
                     self._create_corridor(room1, room2)
 
-    def _should_connect_rooms(self, room1: Dict, room2: Dict) -> bool:
+    def _should_connect_rooms(self, room1: dict, room2: dict) -> bool:
         """Determine if two rooms should be connected based on learned patterns"""
         if "adjacencies" not in self.learned_patterns:
             # Default: connect nearby rooms
@@ -428,7 +427,7 @@ class ImprovedWFCGenerator(WFCGenerator):
         dist = self._room_distance(room1, room2)
         return dist < 10
 
-    def _room_distance(self, room1: Dict, room2: Dict) -> float:
+    def _room_distance(self, room1: dict, room2: dict) -> float:
         """Calculate distance between room centers"""
         x1 = room1["position"][0] + room1["size"][0] // 2
         y1 = room1["position"][1] + room1["size"][1] // 2
@@ -437,7 +436,7 @@ class ImprovedWFCGenerator(WFCGenerator):
 
         return np.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
 
-    def _create_corridor(self, room1: Dict, room2: Dict):
+    def _create_corridor(self, room1: dict, room2: dict):
         """Create corridor between two rooms"""
         # Get room centers
         x1 = room1["position"][0] + room1["size"][0] // 2

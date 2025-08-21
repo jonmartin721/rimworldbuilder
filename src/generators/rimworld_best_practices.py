@@ -5,7 +5,6 @@ Includes support for Realistic Rooms mod.
 """
 
 from dataclasses import dataclass
-from typing import Dict, List, Tuple
 from enum import Enum
 import numpy as np
 
@@ -32,10 +31,10 @@ class RoomDimensions:
     max_practical_tiles: int
 
     # Suggested dimensions (width, height)
-    min_dims: Tuple[int, int]
-    standard_dims: Tuple[int, int]
-    good_dims: Tuple[int, int]
-    max_dims: Tuple[int, int]
+    min_dims: tuple[int, int]
+    standard_dims: tuple[int, int]
+    good_dims: tuple[int, int]
+    max_dims: tuple[int, int]
 
 
 class RimWorldBestPractices:
@@ -432,7 +431,7 @@ class RimWorldBestPractices:
         room_type: str,
         mod_config: ModConfig = ModConfig.REALISTIC_ROOMS,
         size_preference: str = "standard",
-    ) -> Tuple[int, int]:
+    ) -> tuple[int, int]:
         """
         Get recommended room dimensions.
 
@@ -495,8 +494,8 @@ class RimWorldBestPractices:
 
     @staticmethod
     def validate_base_layout(
-        grid: np.ndarray, rooms: List[Dict]
-    ) -> Dict[str, List[str]]:
+        grid: np.ndarray, rooms: list[dict]
+    ) -> dict[str, list[str]]:
         """
         Validate a base layout against best practices.
 
@@ -568,7 +567,7 @@ class RimWorldBestPractices:
         }
 
     @staticmethod
-    def optimize_traffic_flow(room_layout: Dict) -> Dict:
+    def optimize_traffic_flow(room_layout: dict) -> dict:
         """
         Optimize room placement for traffic flow.
 
@@ -633,7 +632,7 @@ class RimWorldBestPractices:
         return killbox
 
     @staticmethod
-    def calculate_base_efficiency_score(layout: Dict) -> float:
+    def calculate_base_efficiency_score(layout: dict) -> float:
         """
         Calculate efficiency score for a base layout.
 

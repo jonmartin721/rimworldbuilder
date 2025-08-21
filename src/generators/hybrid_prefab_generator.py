@@ -5,7 +5,6 @@ Uses actual AlphaPrefabs designs as anchor points and fills between them with WF
 
 import numpy as np
 import random
-from typing import List, Dict, Tuple, Optional
 from pathlib import Path
 from dataclasses import dataclass
 
@@ -19,7 +18,7 @@ class PlacedPrefab:
     """Represents a prefab that has been placed on the grid"""
 
     layout: AlphaPrefabLayout
-    position: Tuple[int, int]  # Top-left corner
+    position: tuple[int, int]  # Top-left corner
     rotation: int  # 0, 90, 180, 270 degrees
     category: str
 
@@ -31,8 +30,8 @@ class HybridPrefabGenerator(ImprovedWFCGenerator):
         self,
         width: int,
         height: int,
-        alpha_prefabs_path: Optional[Path] = None,
-        learned_patterns_file: Optional[Path] = None,
+        alpha_prefabs_path: Path | None = None,
+        learned_patterns_file: Path | None = None,
     ):
         """
         Initialize hybrid generator.
@@ -45,8 +44,8 @@ class HybridPrefabGenerator(ImprovedWFCGenerator):
         """
         super().__init__(width, height, learned_patterns_file)
 
-        self.placed_prefabs: List[PlacedPrefab] = []
-        self.prefab_library: Dict[str, List[AlphaPrefabLayout]] = {}
+        self.placed_prefabs: list[PlacedPrefab] = []
+        self.prefab_library: dict[str, list[AlphaPrefabLayout]] = {}
 
         # Load prefab library if path provided
         if alpha_prefabs_path and alpha_prefabs_path.exists():
@@ -106,8 +105,8 @@ class HybridPrefabGenerator(ImprovedWFCGenerator):
 
     def generate_with_prefab_anchors(
         self,
-        buildable_mask: Optional[np.ndarray] = None,
-        prefab_categories: List[str] = None,
+        buildable_mask: np.ndarray | None = None,
+        prefab_categories: list[str] = None,
         num_prefabs: int = 3,
         fill_with_wfc: bool = True,
     ) -> np.ndarray:
@@ -160,8 +159,8 @@ class HybridPrefabGenerator(ImprovedWFCGenerator):
         return self.grid
 
     def _select_prefab(
-        self, prefabs: List[AlphaPrefabLayout], buildable_mask: Optional[np.ndarray]
-    ) -> Optional[AlphaPrefabLayout]:
+        self, prefabs: list[AlphaPrefabLayout], buildable_mask: np.ndarray | None
+    ) -> AlphaPrefabLayout | None:
         """Select a suitable prefab based on available space"""
         # Filter by size - prefer smaller prefabs for easier placement
         suitable = []
@@ -210,7 +209,7 @@ class HybridPrefabGenerator(ImprovedWFCGenerator):
 
     def _find_prefab_position(
         self, prefab: AlphaPrefabLayout
-    ) -> Optional[Tuple[int, int]]:
+    ) -> tuple[int, int] | None:
         """Find a valid position for the prefab"""
         # Try random positions
         for _ in range(50):

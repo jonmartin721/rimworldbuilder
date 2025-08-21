@@ -6,7 +6,6 @@ import tkinter as tk
 from tkinter import Canvas
 import numpy as np
 from PIL import Image, ImageDraw, ImageTk
-from typing import Optional
 import threading
 from dataclasses import dataclass
 
@@ -44,7 +43,7 @@ class MapLayer:
     """Represents a renderable layer of the map"""
 
     name: str
-    image: Optional[Image.Image] = None
+    image: Image.Image | None = None
     visible: bool = True
     opacity: float = 1.0
     z_order: int = 0
@@ -156,7 +155,7 @@ class OptimizedMapCanvas(Canvas):
 
             font = ImageFont.truetype("arial.ttf", 16)
             small_font = ImageFont.truetype("arial.ttf", 12)
-        except (IOError, OSError, ImportError):
+        except (OSError, ImportError):
             font = None
             small_font = None
 

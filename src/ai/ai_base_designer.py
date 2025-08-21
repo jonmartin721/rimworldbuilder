@@ -6,7 +6,6 @@ Uses Claude to generate detailed base plans based on requirements.
 import os
 import json
 import time
-from typing import Dict, List, Optional, Tuple
 from dataclasses import dataclass, asdict
 
 try:
@@ -34,15 +33,15 @@ class BaseDesignRequest:
     """Request for Claude to design a base"""
 
     colonist_count: int
-    map_size: Tuple[int, int]
+    map_size: tuple[int, int]
     biome: str = "temperate_forest"
     difficulty: str = "medium"
-    priorities: List[str] = None  # e.g., ["defense", "efficiency", "aesthetics"]
-    special_requirements: List[str] = (
+    priorities: list[str] = None  # e.g., ["defense", "efficiency", "aesthetics"]
+    special_requirements: list[str] = (
         None  # e.g., ["killbox", "throne room", "hospital"]
     )
-    available_space: Optional[Tuple[int, int]] = None  # Buildable area dimensions
-    existing_structures: Optional[str] = None  # Description of what's already built
+    available_space: tuple[int, int] | None = None  # Buildable area dimensions
+    existing_structures: str | None = None  # Description of what's already built
 
 
 @dataclass
@@ -50,30 +49,30 @@ class RoomSpec:
     """Specification for a room"""
 
     room_type: str
-    size: Tuple[int, int]  # (width, height)
+    size: tuple[int, int]  # (width, height)
     quantity: int
     priority: int  # 1 = highest priority
-    adjacency_preferences: List[str] = None
-    special_features: List[str] = None
+    adjacency_preferences: list[str] = None
+    special_features: list[str] = None
 
 
 @dataclass
 class BaseDesignPlan:
     """Complete base design plan from Claude"""
 
-    room_specs: List[RoomSpec]
+    room_specs: list[RoomSpec]
     layout_strategy: str  # e.g., "centralized", "distributed", "defensive_layers"
     traffic_flow: str  # Description of main pathways
     defense_strategy: str
     expansion_plan: str
-    special_considerations: List[str]
-    estimated_resources: Dict[str, int]
+    special_considerations: list[str]
+    estimated_resources: dict[str, int]
 
 
 class ClaudeBaseDesigner:
     """Uses Claude API to generate intelligent base designs"""
 
-    def __init__(self, api_key: Optional[str] = None):
+    def __init__(self, api_key: str | None = None):
         """
         Initialize Claude designer.
 
@@ -90,7 +89,7 @@ class ClaudeBaseDesigner:
                 "Warning: No API key provided. Set ANTHROPIC_API_KEY or pass api_key parameter."
             )
 
-    def design_base(self, request: BaseDesignRequest) -> Optional[BaseDesignPlan]:
+    def design_base(self, request: BaseDesignRequest) -> BaseDesignPlan | None:
         """
         Get Claude to design a base based on requirements.
 

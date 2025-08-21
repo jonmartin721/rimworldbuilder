@@ -4,7 +4,6 @@ Defines common room patterns and layouts.
 Updated for Realistic Rooms mod dimensions.
 """
 
-from typing import List, Dict, Tuple, Optional
 from dataclasses import dataclass
 from enum import Enum
 
@@ -66,9 +65,9 @@ class RoomTemplate:
     room_type: RoomType
     width: int  # External dimensions including walls
     height: int
-    layout: List[str]  # String representation of the room
-    doors: List[Tuple[int, int]]  # Door positions relative to room
-    required_items: List[str]  # Required furniture/items
+    layout: list[str]  # String representation of the room
+    doors: list[tuple[int, int]]  # Door positions relative to room
+    required_items: list[str]  # Required furniture/items
     priority: int = 5  # 1-10, higher = more important
 
     def rotate_90(self) -> "RoomTemplate":
@@ -99,7 +98,7 @@ class RoomTemplateLibrary:
     def __init__(self):
         self.templates = self._create_templates()
 
-    def _create_templates(self) -> Dict[RoomType, RoomTemplate]:
+    def _create_templates(self) -> dict[RoomType, RoomTemplate]:
         """Create all room templates"""
         templates = {}
 
@@ -262,11 +261,11 @@ class RoomTemplateLibrary:
 
         return templates
 
-    def get_template(self, room_type: RoomType) -> Optional[RoomTemplate]:
+    def get_template(self, room_type: RoomType) -> RoomTemplate | None:
         """Get a specific room template"""
         return self.templates.get(room_type)
 
-    def get_templates_by_priority(self, min_priority: int = 0) -> List[RoomTemplate]:
+    def get_templates_by_priority(self, min_priority: int = 0) -> list[RoomTemplate]:
         """Get all templates sorted by priority"""
         return sorted(
             [t for t in self.templates.values() if t.priority >= min_priority],
@@ -276,7 +275,7 @@ class RoomTemplateLibrary:
 
     def get_templates_fitting_space(
         self, width: int, height: int
-    ) -> List[RoomTemplate]:
+    ) -> list[RoomTemplate]:
         """Get all templates that fit within given dimensions"""
         fitting = []
         for template in self.templates.values():
