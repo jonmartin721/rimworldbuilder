@@ -118,3 +118,48 @@ results/
 
 # External mod repositories
 data/AlphaPrefabs/
+
+# Machine Learning Models and Data
+*.pt
+*.pth
+*.pkl
+*.pickle
+*.h5
+*.hdf5
+*.ckpt
+*.safetensors
+models/base_gan/*.pt
+models/*/checkpoint_*.pt
+models/*/best_model.pt
+models/*/final_model.pt
+
+# ML Training Data
+data/ml_training/*.pkl
+data/ml_training/*.json
+data/ml_training/feedback_sample_*.png
+data/ml_training/test_base_*.png
+data/ml_training/online_designs.json
+data/ml_training/user_feedback.json
+data/ml_training/synthetic_dataset.pkl
+data/ml_training/prefabs_dataset.pkl
+
+# Feedback and temporary training files
+feedback_sample_*.png
+test_base_*.png
+
+# Tensorboard logs
+runs/
+tensorboard/
+lightning_logs/
+
+# CUDA cache
+.cuda_cache/
+*.cuda
+
+# Poetry lock file (already included above but making sure)
+poetry.lock
+
+# PyTorch nightly wheels (large)
+torch-*.whl
+torchvision-*.whl
+torchaudio-*.whl

@@ -107,7 +107,11 @@ class RealisticBaseVisualizer:
         for y in range(height):
             for x in range(width):
                 cell_value = int(grid[y, x])
-                cell_type = CellType(cell_value)
+                # Handle values outside the CellType enum range
+                try:
+                    cell_type = CellType(cell_value) if cell_value < 24 else CellType.EMPTY
+                except ValueError:
+                    cell_type = CellType.EMPTY
                 color = self.CELL_COLORS.get(cell_type, (100, 100, 100))
                 
                 # Calculate pixel coordinates
@@ -186,7 +190,11 @@ class RealisticBaseVisualizer:
             line = ""
             for x in range(width):
                 cell_value = int(grid[y, x])
-                cell_type = CellType(cell_value)
+                # Handle values outside the CellType enum range
+                try:
+                    cell_type = CellType(cell_value) if cell_value < 24 else CellType.EMPTY
+                except ValueError:
+                    cell_type = CellType.EMPTY
                 symbol = self.CELL_SYMBOLS.get(cell_type, '?')
                 line += symbol
             lines.append(line)
