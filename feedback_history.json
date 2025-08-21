@@ -1,0 +1,58 @@
+[
+  {
+    "session": "2025-08-21T18:24:25.616139",
+    "num_samples": 3,
+    "ratings": [
+      {
+        "sample_idx": 0,
+        "rating": 0.0,
+        "normalized_rating": 0.0,
+        "comments": "not enough rooms",
+        "timestamp": "2025-08-21T18:24:25.615639"
+      },
+      {
+        "sample_idx": 1,
+        "rating": 0.0,
+        "normalized_rating": 0.0,
+        "comments": "not enough rooms",
+        "timestamp": "2025-08-21T18:24:25.615639"
+      },
+      {
+        "sample_idx": 2,
+        "rating": 0.0,
+        "normalized_rating": 0.0,
+        "comments": "not enough rooms",
+        "timestamp": "2025-08-21T18:24:25.615639"
+      }
+    ],
+    "average_rating": 0.0
+  },
+  {
+    "session": "2025-08-21T18:26:04.101089",
+    "num_samples": 3,
+    "ratings": [
+      {
+        "sample_idx": 0,
+        "rating": 0.0,
+        "normalized_rating": 0.0,
+        "comments": "completely empty",
+        "timestamp": "2025-08-21T18:26:04.097590"
+      },
+      {
+        "sample_idx": 1,
+        "rating": 0.0,
+        "normalized_rating": 0.0,
+        "comments": "completely empty",
+        "timestamp": "2025-08-21T18:26:04.097590"
+      },
+      {
+        "sample_idx": 2,
+        "rating": 0.0,
+        "normalized_rating": 0.0,
+        "comments": "completely empty",
+        "timestamp": "2025-08-21T18:26:04.097590"
+      }
+    ],
+    "average_rating": 0.0
+  }
+]
