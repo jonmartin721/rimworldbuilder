@@ -254,12 +254,18 @@ class MLTrainingGUI:
         try:
             # Check for existing prefabs dataset
             prefabs_path = self.data_dir / "prefabs_dataset.pkl"
-            if prefabs_path.exists():
-                import pickle
-                with open(prefabs_path, 'rb') as f:
-                    examples = pickle.load(f)
-                self.log(f"Loaded existing prefabs dataset: {len(examples)} examples")
-                dataset_summary.append(f"Prefabs: {len(examples)}")
+            if prefabs_path.exists() and prefabs_path.stat().st_size > 0:
+                try:
+                    import pickle
+                    with open(prefabs_path, 'rb') as f:
+                        examples = pickle.load(f)
+                    self.log(f"Loaded existing prefabs dataset: {len(examples)} examples")
+                    dataset_summary.append(f"Prefabs: {len(examples)}")
+                except Exception as e:
+                    self.log(f"Error loading prefabs dataset: {e}")
+                    self.log("Recollecting from AlphaPrefabs...")
+                    self.collect_prefabs()
+                    dataset_summary.append("Prefabs: recollecting...")
             else:
                 # Auto-collect prefabs if they don't exist
                 self.log("No prefabs dataset found. Collecting from AlphaPrefabs...")
@@ -270,13 +276,24 @@ class MLTrainingGUI:
             reddit_dataset_path = self.data_dir / "reddit_dataset.pkl"
             reddit_dir = Path("data/reddit_bases")
             
-            if reddit_dataset_path.exists():
+            if reddit_dataset_path.exists() and reddit_dataset_path.stat().st_size > 0:
                 # Load existing processed Reddit dataset
-                import pickle
-                with open(reddit_dataset_path, 'rb') as f:
-                    reddit_examples = pickle.load(f)
-                self.log(f"Loaded existing Reddit dataset: {len(reddit_examples)} examples")
-                dataset_summary.append(f"Reddit: {len(reddit_examples)}")
+                try:
+                    import pickle
+                    with open(reddit_dataset_path, 'rb') as f:
+                        reddit_examples = pickle.load(f)
+                    self.log(f"Loaded existing Reddit dataset: {len(reddit_examples)} examples")
+                    dataset_summary.append(f"Reddit: {len(reddit_examples)}")
+                except Exception as e:
+                    self.log(f"Error loading Reddit dataset: {e}")
+                    # Delete corrupted file and reprocess
+                    reddit_dataset_path.unlink()
+                    if reddit_dir.exists():
+                        images = list(reddit_dir.glob("images/*.png")) + list(reddit_dir.glob("images/*.jpg"))
+                        if images:
+                            self.log(f"Reprocessing {len(images)} Reddit images...")
+                            dataset_summary.append(f"Reddit: reprocessing {len(images)} images...")
+                            self.process_reddit_images(images)
             elif reddit_dir.exists():
                 # Process raw Reddit images into dataset
                 images = list(reddit_dir.glob("images/*.png")) + list(reddit_dir.glob("images/*.jpg"))
@@ -351,13 +368,21 @@ class MLTrainingGUI:
             if examples:
                 # Save as pickle dataset
                 dataset_path = self.data_dir / "reddit_dataset.pkl"
-                with open(dataset_path, 'wb') as f:
-                    pickle.dump(examples, f)
-                
-                self.log(f"Created Reddit dataset: {len(examples)} examples saved to reddit_dataset.pkl")
-                
-                # Update dataset info
-                self.dataset_info.set(f"Reddit dataset created: {len(examples)} examples")
+                try:
+                    with open(dataset_path, 'wb') as f:
+                        pickle.dump(examples, f)
+                    
+                    self.log(f"Created Reddit dataset: {len(examples)} examples saved to reddit_dataset.pkl")
+                    
+                    # Update dataset info
+                    self.dataset_info.set(f"Reddit dataset created: {len(examples)} examples")
+                except Exception as e:
+                    self.log(f"Error saving Reddit dataset: {e}")
+                    # Clean up failed file
+                    if dataset_path.exists():
+                        dataset_path.unlink()
+            else:
+                self.log("No Reddit images could be processed")
                 
         except Exception as e:
             self.log(f"Error creating Reddit dataset: {e}")
