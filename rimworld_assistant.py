@@ -71,7 +71,8 @@ class RimWorldAssistant:
                 elif choice == "8":
                     self.visualize_last()
                 elif choice == "9":
-                    self.interactive_viewer()
+                    print("\nInteractive viewer removed. Please use the GUI version instead.")
+                    # self.interactive_viewer()
                 elif choice == "*":
                     self.export_base()
                 elif choice == "0" or choice.lower() == "q":
@@ -118,7 +119,7 @@ class RimWorldAssistant:
         print("6. AI-Designed Base (Claude)")
         print("7. Smart Generate (NLP → Prefabs)")
         print("8. Visualize Last Generation")
-        print("9. Interactive Layer Viewer")
+        # print("9. Interactive Layer Viewer")  # Removed - use GUI instead
         print("*. Export Base Design")
         print("0. Exit")
 
@@ -592,19 +593,9 @@ class RimWorldAssistant:
                 pass
 
     def interactive_viewer(self):
-        """Launch interactive layer viewer"""
-        if not self.save_path or not self.game_state:
-            print("\nPlease load a save file first!")
-            return
-
-        print("\nLaunching interactive viewer...")
-        print("Use checkboxes to toggle layers on/off")
-
-        # Import and run
-        from scripts.interactive_visualize import InteractiveVisualizer
-
-        visualizer = InteractiveVisualizer(str(self.save_path))
-        visualizer.show()
+        """Launch interactive layer viewer - DEPRECATED"""
+        print("\nInteractive viewer has been removed.")
+        print("Please use the GUI version (rimworld_assistant_gui_v3.py) for interactive visualization.")
 
     def export_base(self):
         """Export base design"""
