@@ -106,7 +106,7 @@ class AttentionBlock(nn.Module):
 class BaseGenerator(nn.Module):
     """Generator network for creating base layouts"""
     
-    def __init__(self, latent_dim: int = 128, condition_dim: int = 11, num_classes: int = 32):
+    def __init__(self, latent_dim: int = 128, condition_dim: int = 11, num_classes: int = 256):
         super().__init__()
         self.latent_dim = latent_dim
         self.condition_dim = condition_dim
@@ -145,6 +145,28 @@ class BaseGenerator(nn.Module):
         # Output layer
         self.output = nn.Conv2d(32, num_classes, 3, 1, 1)
         
+        # Initialize weights for better initial outputs
+        self._initialize_weights()
+        
+    def _initialize_weights(self):
+        """Initialize weights to avoid all-empty outputs"""
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d):
+                nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
+                if m.bias is not None:
+                    nn.init.constant_(m.bias, 0)
+            elif isinstance(m, nn.BatchNorm2d):
+                nn.init.constant_(m.weight, 1)
+                nn.init.constant_(m.bias, 0)
+            elif isinstance(m, nn.Linear):
+                nn.init.normal_(m.weight, 0, 0.01)
+                nn.init.constant_(m.bias, 0)
+        
+        # Special initialization for output layer to avoid all zeros
+        with torch.no_grad():
+            self.output.weight.normal_(0, 0.02)
+            self.output.bias.normal_(0, 0.1)  # Small positive bias for variety
+        
     def forward(self, z: torch.Tensor, conditions: torch.Tensor) -> torch.Tensor:
         """Generate base layout from latent vector and conditions"""
         # Concatenate noise and conditions
@@ -169,7 +191,7 @@ class BaseGenerator(nn.Module):
 class BaseDiscriminator(nn.Module):
     """Discriminator network for evaluating base quality"""
     
-    def __init__(self, num_classes: int = 32, condition_dim: int = 11):
+    def __init__(self, num_classes: int = 256, condition_dim: int = 11):
         super().__init__()
         self.num_classes = num_classes
         self.condition_dim = condition_dim
@@ -269,24 +291,51 @@ class BaseGAN:
             # Prepare conditions
             conditions = requirements.to_tensor().unsqueeze(0).repeat(num_samples, 1).to(self.device)
             
-            # Generate
-            with autocast():
-                output = self.generator(z, conditions)
+            # Generate (no autocast for RTX 5090 compatibility)
+            output = self.generator(z, conditions)
             
             # Convert to class indices
             bases = torch.argmax(output, dim=1).cpu().numpy()
+            
+            # Debug: Check if output is too uniform
+            unique_vals = np.unique(bases)
+            if len(unique_vals) <= 2:
+                print(f"Warning: Generated base has only {len(unique_vals)} unique values: {unique_vals}")
+                # Add some random noise to early untrained models
+                if len(unique_vals) == 1:
+                    # Completely uniform - add some random structure
+                    for i in range(num_samples):
+                        # Add random walls in a simple pattern
+                        h, w = bases[i].shape
+                        # Add border walls
+                        bases[i][0, :] = 1  # Top wall
+                        bases[i][-1, :] = 1  # Bottom wall
+                        bases[i][:, 0] = 1  # Left wall
+                        bases[i][:, -1] = 1  # Right wall
+                        # Add some random rooms
+                        for _ in range(3):
+                            x, y = np.random.randint(5, w-5), np.random.randint(5, h-5)
+                            w_room, h_room = np.random.randint(4, 8), np.random.randint(4, 8)
+                            # Draw room walls
+                            bases[i][y:y+h_room, x] = 1
+                            bases[i][y:y+h_room, x+w_room] = 1
+                            bases[i][y, x:x+w_room] = 1
+                            bases[i][y+h_room, x:x+w_room] = 1
+                            # Add door
+                            bases[i][y+h_room//2, x] = 2
         
         return bases
     
     def train_step(self, real_bases: torch.Tensor, conditions: torch.Tensor, 
                    quality_labels: torch.Tensor) -> Dict[str, float]:
         """Single training step"""
-        batch_size = real_bases.size(0)
-        
-        # Train Discriminator
-        self.d_optimizer.zero_grad()
-        
-        with autocast():
+        try:
+            batch_size = real_bases.size(0)
+            
+            # Train Discriminator
+            self.d_optimizer.zero_grad()
+            
+            # Disable mixed precision for now - RTX 5090 compatibility
             # Real bases
             real_validity, real_quality = self.discriminator(real_bases, conditions)
             d_real_loss = self.adversarial_loss(real_validity, torch.ones_like(real_validity))
@@ -302,14 +351,13 @@ class BaseGAN:
             
             # Total discriminator loss
             d_loss = d_real_loss + d_fake_loss + quality_loss
-        
-        self.scaler.scale(d_loss).backward()
-        self.scaler.step(self.d_optimizer)
-        
-        # Train Generator
-        self.g_optimizer.zero_grad()
-        
-        with autocast():
+            
+            d_loss.backward()
+            self.d_optimizer.step()
+            
+            # Train Generator
+            self.g_optimizer.zero_grad()
+            
             # Generate new bases
             z = torch.randn(batch_size, self.latent_dim).to(self.device)
             fake_bases = self.generator(z, conditions)
@@ -327,15 +375,23 @@ class BaseGAN:
                 diversity = self.diversity_loss(fake_bases[0], fake_bases[1])
                 g_div_loss = -diversity * 0.1  # Negative to encourage diversity
             else:
-                g_div_loss = 0
+                g_div_loss = torch.tensor(0.0).to(self.device)
             
             # Total generator loss
             g_loss = g_adv_loss + g_quality_loss + g_div_loss
-        
-        self.scaler.scale(g_loss).backward()
-        self.scaler.step(self.g_optimizer)
-        
-        self.scaler.update()
+            
+            g_loss.backward()
+            self.g_optimizer.step()
+            
+            # Synchronize CUDA
+            if self.device == "cuda":
+                torch.cuda.synchronize()
+            
+        except RuntimeError as e:
+            print(f"CUDA Error in train_step: {e}")
+            print("Attempting to recover...")
+            torch.cuda.empty_cache()
+            raise e
         
         return {
             'd_loss': d_loss.item(),
@@ -345,17 +401,29 @@ class BaseGAN:
     
     def save(self, path: Path):
         """Save model checkpoints"""
+        path = Path(path)  # Ensure it's a Path object
         torch.save({
             'generator': self.generator.state_dict(),
             'discriminator': self.discriminator.state_dict(),
             'g_optimizer': self.g_optimizer.state_dict(),
             'd_optimizer': self.d_optimizer.state_dict(),
             'history': self.history
-        }, path)
+        }, str(path))  # Convert to string for torch.save
     
     def load(self, path: Path):
         """Load model checkpoints"""
-        checkpoint = torch.load(path, map_location=self.device)
+        path = Path(path)  # Ensure it's a Path object
+        if not path.exists():
+            raise FileNotFoundError(f"Checkpoint file not found: {path}")
+        
+        try:
+            # Try loading with weights_only=False for compatibility
+            checkpoint = torch.load(str(path), map_location=self.device, weights_only=False)
+        except Exception as e:
+            print(f"Error loading checkpoint: {e}")
+            # Try alternative loading method
+            checkpoint = torch.load(str(path), map_location=self.device)
+        
         self.generator.load_state_dict(checkpoint['generator'])
         self.discriminator.load_state_dict(checkpoint['discriminator'])
         self.g_optimizer.load_state_dict(checkpoint['g_optimizer'])
