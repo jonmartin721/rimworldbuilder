@@ -13,11 +13,9 @@ from pathlib import Path
 import torch
 import numpy as np
 from PIL import Image, ImageTk
-import json
 from datetime import datetime
-import psutil
 import GPUtil
-from typing import Optional, Dict, Any
+from typing import Dict, Any
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import sys
@@ -25,9 +23,10 @@ import sys
 # Add parent to path
 sys.path.insert(0, str(Path(__file__).parent))
 
-from src.ml.base_gan_model import BaseGAN, BaseRequirements
+from src.ml.base_gan_model import BaseRequirements
 from src.ml.train_base_model import InteractiveTrainer
 from src.ml.dataset_collector import DatasetCollector
+from src.ml.side_by_side_feedback import show_side_by_side_feedback
 from src.visualization.realistic_visualizer import RealisticBaseVisualizer
 
 
@@ -153,6 +152,10 @@ class TrainingThread(threading.Thread):
                 self.message_queue.put(('epoch', epoch))
                 result = original_train_epoch(train_loader, epoch)
                 self.message_queue.put(('metrics', result))
+                
+                # Generate preview samples EVERY epoch for visual feedback
+                self.message_queue.put(('generate_previews', epoch))
+                
                 return result
             
             self.trainer.train_epoch = train_epoch_with_updates
@@ -196,7 +199,7 @@ class MLTrainingGUI:
         # Set icon if available
         try:
             self.root.iconbitmap("assets/icon.ico")
-        except:
+        except Exception:
             pass
         
         # Initialize components
@@ -311,7 +314,7 @@ class MLTrainingGUI:
         ttk.Entry(config_frame, textvariable=self.lr_d_var, width=10).grid(row=1, column=3, padx=5)
         
         ttk.Label(config_frame, text="Feedback Interval:").grid(row=2, column=0, sticky='w', padx=5)
-        self.feedback_var = tk.IntVar(value=20)
+        self.feedback_var = tk.IntVar(value=10)  # Changed default to 10
         ttk.Spinbox(config_frame, from_=5, to=100, textvariable=self.feedback_var, width=10).grid(row=2, column=1, padx=5)
         
         ttk.Label(config_frame, text="Save Interval:").grid(row=2, column=2, sticky='w', padx=5)
@@ -333,6 +336,7 @@ class MLTrainingGUI:
         
         ttk.Button(control_frame, text="Load Checkpoint", command=self.load_checkpoint).pack(side='left', padx=5)
         ttk.Button(control_frame, text="Save Model", command=self.save_model).pack(side='left', padx=5)
+        ttk.Button(control_frame, text="Test Preview", command=self.test_preview_generation).pack(side='left', padx=5)
         
         # Progress
         progress_frame = ttk.LabelFrame(tab, text="Training Progress", padding=10)
@@ -344,11 +348,48 @@ class MLTrainingGUI:
         self.progress_bar = ttk.Progressbar(progress_frame, mode='determinate', length=400)
         self.progress_bar.pack(pady=5)
         
-        # Training log
-        log_frame = ttk.LabelFrame(tab, text="Training Log", padding=10)
-        log_frame.pack(fill='both', expand=True, padx=5, pady=5)
+        # Visual Progress Display
+        visual_frame = ttk.LabelFrame(tab, text="Live Training Preview", padding=10)
+        visual_frame.pack(fill='both', expand=True, padx=5, pady=5)
         
-        self.log_text = scrolledtext.ScrolledText(log_frame, height=15, width=80, font=('Consolas', 9))
+        # Create preview panels
+        preview_container = ttk.Frame(visual_frame)
+        preview_container.pack(fill='both', expand=True)
+        
+        # Best sample preview
+        best_frame = ttk.LabelFrame(preview_container, text="Best Sample (Current Epoch)")
+        best_frame.grid(row=0, column=0, padx=5, pady=5, sticky='nsew')
+        self.best_image_label = ttk.Label(best_frame, text="No preview yet")
+        self.best_image_label.pack()
+        self.best_score_label = ttk.Label(best_frame, text="Score: N/A")
+        self.best_score_label.pack()
+        
+        # Worst sample preview
+        worst_frame = ttk.LabelFrame(preview_container, text="Worst Sample (Current Epoch)")
+        worst_frame.grid(row=0, column=1, padx=5, pady=5, sticky='nsew')
+        self.worst_image_label = ttk.Label(worst_frame, text="No preview yet")
+        self.worst_image_label.pack()
+        self.worst_score_label = ttk.Label(worst_frame, text="Score: N/A")
+        self.worst_score_label.pack()
+        
+        # Latest sample preview
+        latest_frame = ttk.LabelFrame(preview_container, text="Latest Generated")
+        latest_frame.grid(row=0, column=2, padx=5, pady=5, sticky='nsew')
+        self.latest_image_label = ttk.Label(latest_frame, text="No preview yet")
+        self.latest_image_label.pack()
+        self.latest_info_label = ttk.Label(latest_frame, text="Epoch: N/A")
+        self.latest_info_label.pack()
+        
+        # Configure grid weights
+        preview_container.grid_columnconfigure(0, weight=1)
+        preview_container.grid_columnconfigure(1, weight=1)
+        preview_container.grid_columnconfigure(2, weight=1)
+        
+        # Training log (smaller now)
+        log_frame = ttk.LabelFrame(tab, text="Training Log", padding=10)
+        log_frame.pack(fill='both', expand=False, padx=5, pady=5)
+        
+        self.log_text = scrolledtext.ScrolledText(log_frame, height=6, width=80, font=('Consolas', 9))
         self.log_text.pack(fill='both', expand=True)
         
     def setup_monitoring_tab(self):
@@ -445,6 +486,7 @@ class MLTrainingGUI:
         ttk.Button(gen_frame, text="Generate Base (AI)", command=self.generate_test_base, style='Accent.TButton').pack(side='left', padx=5)
         ttk.Button(gen_frame, text="Generate Multiple (5)", command=lambda: self.generate_test_base(5)).pack(side='left', padx=5)
         ttk.Button(gen_frame, text="Generate Rule-Based", command=self.generate_rule_based).pack(side='left', padx=5)
+        ttk.Button(gen_frame, text="Test Side-by-Side", command=self.test_side_by_side_feedback).pack(side='left', padx=5)
         ttk.Button(gen_frame, text="Save Generated", command=self.save_generated).pack(side='left', padx=5)
         
         # Image display
@@ -584,6 +626,24 @@ class MLTrainingGUI:
             self.pause_btn.config(state='disabled')
             self.stop_btn.config(state='disabled')
             self.log("Training stopped")
+    
+    def test_preview_generation(self):
+        """Test the preview generation and display - works even without model"""
+        self.log("Testing visual preview generation...")
+        
+        # Set current epoch if not set
+        if not hasattr(self, 'current_epoch'):
+            self.current_epoch = 0
+        
+        # Generate samples (will use rule-based if no model)
+        samples = self.generate_and_preview_samples(3)
+        
+        if samples:
+            self.update_training_previews(samples)
+            self.log(f"✓ Generated {len(samples)} preview samples successfully!")
+            self.log("Preview panels should now show the generated bases")
+        else:
+            self.log("Failed to generate preview samples")
     
     def load_checkpoint(self):
         """Load a model checkpoint"""
@@ -787,6 +847,83 @@ class MLTrainingGUI:
             visualizer.visualize(self.current_generated_base, filepath, title="Generated Base")
             self.log(f"Saved base: {filepath}")
     
+    def test_side_by_side_feedback(self):
+        """Test the side-by-side feedback dialog with multiple generated samples"""
+        try:
+            self.log("Generating multiple samples for side-by-side comparison...")
+            
+            # Generate multiple samples
+            samples_data = []
+            num_samples = 6
+            
+            for i in range(num_samples):
+                self.log(f"Generating sample {i+1}/{num_samples}...")
+                
+                # Generate with different parameters
+                if self.model:
+                    # Use AI model
+                    requirements = BaseRequirements(
+                        num_colonists=self.test_colonists.get() + i,
+                        num_bedrooms=self.test_bedrooms.get() + (i % 3),
+                        num_workshops=max(1, self.test_workshops.get() - (i % 2)),
+                        has_kitchen=True,
+                        has_hospital=i % 2 == 0,
+                        has_recreation=i % 3 == 0,
+                        defense_level=i % 3,
+                        beauty_preference=0.5 + (i * 0.1),
+                        efficiency_preference=0.8,
+                        size_constraint=(128, 128)
+                    )
+                    layout = self.model.generate(requirements)
+                else:
+                    # Use rule-based generator
+                    from src.generators.realistic_base_generator import RealisticBaseGenerator
+                    generator = RealisticBaseGenerator(128, 128)
+                    layout = generator.generate_base(
+                        num_bedrooms=self.test_bedrooms.get() + (i % 3),
+                        include_kitchen=True,
+                        include_workshop=i % 2 == 0,
+                        include_hospital=i % 3 == 0
+                    )
+                
+                # Save image
+                image_path = self.model_dir / f"feedback_sample_{i+1}.png"
+                visualizer = RealisticBaseVisualizer(scale=8)
+                visualizer.visualize(layout, str(image_path), 
+                                   title=f"Sample {i+1}: {self.test_bedrooms.get() + (i % 3)} bedrooms")
+                
+                samples_data.append({
+                    'image_path': str(image_path),
+                    'description': f"Base with {self.test_bedrooms.get() + (i % 3)} bedrooms, "
+                                 f"{'with' if i % 2 == 0 else 'without'} hospital, "
+                                 f"defense level {i % 3}"
+                })
+            
+            self.log(f"Generated {num_samples} samples. Opening side-by-side feedback dialog...")
+            
+            # Show feedback dialog
+            def feedback_callback(results):
+                self.log(f"Received feedback for {len(results)} samples")
+                for r in results:
+                    self.log(f"  Sample {r['sample_idx']+1}: Rating {r['rating']*10:.1f}/10")
+                avg_rating = sum(r['rating'] for r in results) / len(results)
+                self.log(f"Average rating: {avg_rating*10:.1f}/10")
+                
+                # If model exists, apply feedback
+                if self.model and hasattr(self.model, 'apply_feedback'):
+                    self.model.apply_feedback(
+                        [s.get('layout') for s in samples_data if 'layout' in s],
+                        [r['rating'] for r in results]
+                    )
+                    self.log("Applied feedback to model")
+            
+            show_side_by_side_feedback(self.root, samples_data, feedback_callback)
+            
+        except Exception as e:
+            self.log(f"ERROR in side-by-side feedback test: {str(e)}")
+            import traceback
+            traceback.print_exc()
+    
     def collect_prefabs(self):
         """Collect data from AlphaPrefabs"""
         try:
@@ -947,7 +1084,19 @@ class MLTrainingGUI:
     
     def show_feedback_dialog(self, samples_data):
         """Show dialog for rating generated samples during training"""
-        # Create top-level window for feedback
+        # Use the new side-by-side feedback dialog
+        def feedback_callback(results):
+            # Send feedback back to training thread
+            if self.training_thread and hasattr(self.training_thread, 'feedback_response'):
+                self.training_thread.feedback_response = results
+                self.training_thread.feedback_event.set()
+            self.log(f"Submitted feedback for {len(results)} samples with average rating: {sum(r['rating'] for r in results)/len(results):.2f}")
+        
+        # Show the side-by-side dialog
+        show_side_by_side_feedback(self.root, samples_data, feedback_callback)
+        return
+        
+        # Old implementation (kept for reference but not executed)
         feedback_window = tk.Toplevel(self.root)
         feedback_window.title("Rate Generated Samples - Training Feedback")
         feedback_window.geometry("800x600")
@@ -1064,6 +1213,117 @@ class MLTrainingGUI:
         # Focus window
         feedback_window.focus_force()
     
+    def update_training_previews(self, epoch_samples):
+        """Update the visual preview panels during training"""
+        try:
+            if not epoch_samples:
+                return
+                
+            # Sort samples by quality/score
+            sorted_samples = sorted(epoch_samples, key=lambda x: x.get('score', 0), reverse=True)
+            
+            # Update best sample
+            if sorted_samples:
+                best = sorted_samples[0]
+                self.update_preview_image(self.best_image_label, best.get('image_path'))
+                self.best_score_label.config(text=f"Score: {best.get('score', 0):.2f}")
+            
+            # Update worst sample
+            if len(sorted_samples) > 1:
+                worst = sorted_samples[-1]
+                self.update_preview_image(self.worst_image_label, worst.get('image_path'))
+                self.worst_score_label.config(text=f"Score: {worst.get('score', 0):.2f}")
+            
+            # Update latest sample
+            if sorted_samples:
+                latest = sorted_samples[len(sorted_samples)//2]  # Middle sample
+                self.update_preview_image(self.latest_image_label, latest.get('image_path'))
+                self.latest_info_label.config(text=f"Epoch: {self.current_epoch}")
+                
+        except Exception as e:
+            self.log(f"Error updating previews: {e}")
+    
+    def update_preview_image(self, label, image_path):
+        """Update a preview image label"""
+        try:
+            if image_path and Path(image_path).exists():
+                img = Image.open(image_path)
+                img.thumbnail((200, 200), Image.Resampling.LANCZOS)
+                photo = ImageTk.PhotoImage(img)
+                label.config(image=photo, text="")
+                label.image = photo  # Keep reference
+            else:
+                label.config(text="No image", image="")
+        except Exception as e:
+            label.config(text=f"Error: {e}", image="")
+    
+    def generate_and_preview_samples(self, num_samples=3):
+        """Generate samples during training and show them in preview"""
+        samples = []
+        
+        try:
+            # Use model if available, otherwise use rule-based generator
+            if self.model:
+                # Model-based generation
+                for i in range(num_samples):
+                    requirements = BaseRequirements(
+                        num_colonists=8 + (i * 2),
+                        num_bedrooms=6 + i,
+                        num_workshops=2 + (i % 2),
+                        has_kitchen=True,
+                        has_hospital=i % 2 == 0,
+                        has_recreation=True,
+                        defense_level=i % 3,
+                        beauty_preference=0.5 + (i * 0.1),
+                        efficiency_preference=0.8,
+                        size_constraint=(128, 128)
+                    )
+                    
+                    layout = self.model.generate(requirements)
+                    samples.append(self._create_preview_sample(layout, i))
+            else:
+                # Rule-based generation for testing/early training
+                from src.generators.realistic_base_generator import RealisticBaseGenerator
+                
+                for i in range(num_samples):
+                    generator = RealisticBaseGenerator(128, 128)
+                    layout = generator.generate_base(
+                        num_bedrooms=5 + i,
+                        include_kitchen=True,
+                        include_workshop=1 + (i % 2),
+                        include_hospital=i == 0,
+                        include_storage=True,
+                        include_dining=i > 0
+                    )
+                    samples.append(self._create_preview_sample(layout, i))
+                    
+        except Exception as e:
+            self.log(f"Error generating preview samples: {e}")
+            import traceback
+            traceback.print_exc()
+            
+        return samples
+    
+    def _create_preview_sample(self, layout, index):
+        """Create a preview sample from a layout"""
+        # Save preview image
+        preview_path = self.model_dir / f"epoch_{self.current_epoch}_sample_{index}.png"
+        visualizer = RealisticBaseVisualizer(scale=6)
+        visualizer.visualize(layout, str(preview_path), 
+                           title=f"Epoch {self.current_epoch} Sample {index+1}")
+        
+        # Calculate simple quality score
+        unique_cells = len(np.unique(layout))
+        non_empty = np.sum(layout > 0)
+        score = (unique_cells / 10.0) + (non_empty / (128 * 128) * 5)
+        
+        return {
+            'image_path': str(preview_path),
+            'layout': layout,
+            'score': min(10, score),
+            'epoch': self.current_epoch
+        }
+    
     def clear_history(self):
         """Clear metrics history"""
         self.metrics_history = {
@@ -1104,6 +1364,13 @@ class MLTrainingGUI:
                     self.metrics_history['d_loss'].append(msg_data['d_loss'])
                     self.metrics_history['quality'].append(msg_data['quality'])
                     self.update_plots()
+                elif msg_type == 'generate_previews':
+                    # Generate and show preview samples
+                    epoch = msg_data
+                    self.log(f"Updating visual previews for epoch {epoch}...")
+                    samples = self.generate_and_preview_samples(3)
+                    if samples:
+                        self.update_training_previews(samples)
                 elif msg_type == 'complete':
                     self.log(msg_data)
                     self.is_training = False
@@ -1144,7 +1411,7 @@ def main():
         app.run()
     except Exception as e:
         print(f"\n{'='*60}")
-        print(f"FATAL ERROR: GUI crashed during initialization")
+        print("FATAL ERROR: GUI crashed during initialization")
         print(f"Error: {e}")
         print(f"{'='*60}\n")
         import traceback
@@ -1154,7 +1421,7 @@ def main():
         try:
             import tkinter.messagebox as mb
             mb.showerror("Fatal Error", f"GUI failed to start:\n\n{str(e)}\n\nCheck console for details.")
-        except:
+        except Exception:
             pass
         
         input("\nPress Enter to exit...")
