@@ -163,3 +163,9 @@ poetry.lock
 torch-*.whl
 torchvision-*.whl
 torchaudio-*.whl
+
+# Reddit scraped data (can be regenerated)
+data/reddit_bases/
+
+# Claude AI assistant cache
+.claude/
