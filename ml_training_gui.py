@@ -113,6 +113,8 @@ class TrainingThread(threading.Thread):
         self.paused = False
         self.feedback_event = threading.Event()
         self.feedback_response = None
+        from pathlib import Path
+        self.Path = Path
     
     def feedback_callback(self, samples_data):
         """Callback for feedback requests from trainer"""
@@ -153,8 +155,10 @@ class TrainingThread(threading.Thread):
                 result = original_train_epoch(train_loader, epoch)
                 self.message_queue.put(('metrics', result))
                 
-                # Generate preview samples EVERY epoch for visual feedback
-                self.message_queue.put(('generate_previews', epoch))
+                # Only generate previews after epoch 10 or if pre-trained
+                # This avoids showing pure noise in early epochs
+                if epoch > 10 or self.Path(self.trainer.model_dir / "pretrained_model.pt").exists():
+                    self.message_queue.put(('generate_previews', epoch))
                 
                 return result
             
@@ -456,6 +460,8 @@ class MLTrainingGUI:
         self.stop_btn = ttk.Button(control_frame, text="Stop", command=self.stop_training, state='disabled')
         self.stop_btn.pack(side='left', padx=5)
         
+        ttk.Button(control_frame, text="Pre-train on Rules", command=self.run_pretraining).pack(side='left', padx=5)
+        
         ttk.Button(control_frame, text="Load Checkpoint", command=self.load_checkpoint).pack(side='left', padx=5)
         ttk.Button(control_frame, text="Save Model", command=self.save_model).pack(side='left', padx=5)
         ttk.Button(control_frame, text="Test Preview", command=self.test_preview_generation).pack(side='left', padx=5)
@@ -697,6 +703,16 @@ class MLTrainingGUI:
                     data_dir=self.data_dir
                 )
                 
+                # Check for pre-trained model
+                pretrained_path = self.model_dir / "pretrained_model.pt"
+                if pretrained_path.exists():
+                    self.log("Loading pre-trained model for better starting point...")
+                    try:
+                        self.trainer.gan.load(pretrained_path)
+                        self.log("✓ Loaded pre-trained model - should produce better results!")
+                    except Exception as e:
+                        self.log(f"Could not load pre-trained model: {e}")
+                
                 # Set model reference for preview generation
                 if hasattr(self.trainer, 'model'):
                     self.model = self.trainer.model
@@ -752,6 +768,57 @@ class MLTrainingGUI:
             self.pause_btn.config(state='disabled')
             self.stop_btn.config(state='disabled')
             self.log("Training stopped")
+    
+    def run_pretraining(self):
+        """Run pre-training on rule-based examples"""
+        try:
+            from tkinter import messagebox
+            
+            result = messagebox.askyesno(
+                "Pre-train Model",
+                "This will generate high-quality rule-based examples and pre-train the GAN.\n\n"
+                "This gives the model a head start so it produces better results faster.\n\n"
+                "The process will take 10-20 minutes.\n\n"
+                "Continue?"
+            )
+            
+            if result:
+                self.log("Starting pre-training on rule-based examples...")
+                
+                # Run in background
+                import threading
+                def pretrain_thread():
+                    try:
+                        from src.ml.pretrain_gan import GANPretrainer
+                        
+                        self.log("Initializing pre-trainer...")
+                        pretrainer = GANPretrainer(self.model_dir)
+                        
+                        # Generate dataset if needed
+                        dataset_path = self.data_dir / "rule_based_dataset.pkl"
+                        if not dataset_path.exists():
+                            self.log("Generating 500 rule-based examples...")
+                            pretrainer.generate_rule_based_dataset(500)
+                        else:
+                            self.log("Using existing rule-based dataset")
+                        
+                        # Pre-train
+                        self.log("Pre-training GAN (50 epochs)...")
+                        pretrainer.pretrain(num_epochs=50, batch_size=16)
+                        
+                        self.log("✓ Pre-training complete! Model saved to pretrained_model.pt")
+                        self.log("The model should now produce much better results from the start!")
+                        
+                    except Exception as e:
+                        self.log(f"Pre-training error: {e}")
+                        import traceback
+                        traceback.print_exc()
+                
+                thread = threading.Thread(target=pretrain_thread, daemon=True)
+                thread.start()
+                
+        except Exception as e:
+            self.log(f"Error starting pre-training: {e}")
     
     def test_preview_generation(self):
         """Test the preview generation and display - works even without model"""
