@@ -35,6 +35,7 @@ class BaseExample:
     quality_scores: Dict[str, float]  # efficiency, beauty, defense, etc.
     source: str  # Where this example came from
     description: str  # Text description
+    discriminator_only: bool = False  # If True, only use for discriminator training
     
     def to_tensor(self) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """Convert to tensors for training"""
@@ -451,7 +452,8 @@ class DatasetCollector:
                 requirements=requirements,
                 quality_scores=quality,
                 source=item.get('source', 'reddit'),
-                description=f"Reddit image (score: {reddit_score})"
+                description=f"Reddit image (score: {reddit_score})",
+                discriminator_only=True  # Reddit images only for discriminator
             )
             examples.append(example)
         
@@ -509,7 +511,7 @@ class DatasetCollector:
                     reddit_data = pickle.load(f)
                 reddit_examples = self._convert_reddit_to_examples(reddit_data)
                 all_examples.extend(reddit_examples)
-                logger.info(f"Collected {len(reddit_examples)} from Reddit")
+                logger.info(f"Collected {len(reddit_examples)} from Reddit (discriminator-only)")
             except Exception as e:
                 logger.error(f"Failed to load Reddit dataset: {e}")
         
@@ -532,8 +534,24 @@ class DatasetCollector:
         all_examples.extend(feedback_examples)
         logger.info(f"Collected {len(feedback_examples)} from user feedback")
         
-        logger.info(f"Total training examples: {len(all_examples)}")
+        # Report split between generator and discriminator-only examples
+        gen_examples = [ex for ex in all_examples if not ex.discriminator_only]
+        disc_only = [ex for ex in all_examples if ex.discriminator_only]
+        logger.info(f"Total examples: {len(all_examples)} ({len(gen_examples)} for generator, {len(disc_only)} discriminator-only)")
+        
         return all_examples
+    
+    def split_training_data(self, examples: List[BaseExample]) -> Tuple[List[BaseExample], List[BaseExample]]:
+        """Split examples into generator training and discriminator-only sets
+        
+        Returns:
+            (generator_examples, discriminator_only_examples)
+        """
+        generator_examples = [ex for ex in examples if not ex.discriminator_only]
+        discriminator_only = [ex for ex in examples if ex.discriminator_only]
+        
+        logger.info(f"Split data: {len(generator_examples)} for generator training, {len(discriminator_only)} for discriminator-only")
+        return generator_examples, discriminator_only
     
     def save_dataset(self, examples: List[BaseExample], filename: str = "base_dataset.pkl"):
         """Save dataset to file"""
