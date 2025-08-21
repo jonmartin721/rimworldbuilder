@@ -1,4 +1,3 @@
-from dataclasses import dataclass, field
 from typing import List, Optional, Dict, Any, Tuple
 from enum import Enum
 from pydantic import BaseModel, Field
@@ -40,7 +39,7 @@ class Position(BaseModel):
     def __hash__(self):
         return hash((self.x, self.y, self.z))
 
-    def distance_to(self, other: 'Position') -> float:
+    def distance_to(self, other: "Position") -> float:
         return ((self.x - other.x) ** 2 + (self.y - other.y) ** 2) ** 0.5
 
 
@@ -150,19 +149,19 @@ class Map(BaseModel):
     rooms: List[Room] = Field(default_factory=list)
     home_area: List[Position] = Field(default_factory=list)
     roof_area: List[Position] = Field(default_factory=list)
-    
+
     def get_building_at(self, position: Position) -> Optional[Building]:
         for building in self.buildings:
             if building.position == position:
                 return building
         return None
-    
+
     def get_terrain_at(self, x: int, y: int) -> Optional[TerrainTile]:
         return self.terrain.get((x, y))
-    
+
     def get_colonists(self) -> List[Pawn]:
         return [p for p in self.pawns if p.is_colonist]
-    
+
     def get_buildings_by_type(self, building_type: BuildingType) -> List[Building]:
         return [b for b in self.buildings if b.building_type == building_type]
 
@@ -183,12 +182,12 @@ class GameState(BaseModel):
     mod_names: List[str] = Field(default_factory=list)
     difficulty: Optional[str] = None
     storyteller: Optional[str] = None
-    
+
     def get_active_map(self) -> Optional[Map]:
         return self.maps[0] if self.maps else None
-    
+
     def get_total_colonists(self) -> int:
         return sum(len(m.get_colonists()) for m in self.maps)
-    
+
     def get_total_wealth(self) -> float:
         return sum(sum(r.wealth or 0 for r in m.rooms) for m in self.maps)

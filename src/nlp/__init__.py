@@ -2,4 +2,4 @@
 
 from .base_generator_nlp import BaseGeneratorNLP, BaseRequirements, NLPExamples
 
-__all__ = ['BaseGeneratorNLP', 'BaseRequirements', 'NLPExamples']
+__all__ = ["BaseGeneratorNLP", "BaseRequirements", "NLPExamples"]

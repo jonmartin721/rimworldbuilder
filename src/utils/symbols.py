@@ -17,32 +17,32 @@ def _can_encode(text: str) -> bool:
 # Define symbols with fallbacks
 class Symbols:
     """Cross-platform symbols"""
-    
+
     # Success/failure
     CHECK = "✓" if _can_encode("✓") else "[OK]"
     CROSS = "✗" if _can_encode("✗") else "[X]"
     SUCCESS = "✅" if _can_encode("✅") else "[SUCCESS]"
     FAILURE = "❌" if _can_encode("❌") else "[FAILED]"
     WARNING = "⚠️" if _can_encode("⚠️") else "[WARNING]"
-    
+
     # Progress
     HOURGLASS = "⏳" if _can_encode("⏳") else "[...]"
     TIMER = "⏱️" if _can_encode("⏱️") else "[TIME]"
-    
+
     # Arrows
     ARROW_RIGHT = "→" if _can_encode("→") else "->"
     ARROW_LEFT = "←" if _can_encode("←") else "<-"
     ARROW_UP = "↑" if _can_encode("↑") else "^"
     ARROW_DOWN = "↓" if _can_encode("↓") else "v"
-    
+
     # Files/folders
     FOLDER = "📂" if _can_encode("📂") else "[DIR]"
     FILE = "📄" if _can_encode("📄") else "[FILE]"
-    
+
     # UI elements
     BULLET = "•" if _can_encode("•") else "*"
     INFO = "ℹ️" if _can_encode("ℹ️") else "[i]"
-    
+
     # Generation
     HAMMER = "🔨" if _can_encode("🔨") else "[BUILD]"
     SPARKLES = "✨" if _can_encode("✨") else "[*]"
