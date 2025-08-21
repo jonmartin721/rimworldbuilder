@@ -17,22 +17,22 @@ logger = logging.getLogger(__name__)
 class TileType(Enum):
     """Possible tile types in the WFC grid"""
 
-    EMPTY = "empty"
-    WALL = "wall"
-    DOOR = "door"
-    BEDROOM = "bedroom"
-    STORAGE = "storage"
-    WORKSHOP = "workshop"
-    KITCHEN = "kitchen"
-    DINING = "dining"
-    RECREATION = "recreation"
-    HOSPITAL = "hospital"
-    RESEARCH = "research"
-    POWER = "power"
-    BATTERY = "battery"
-    CORRIDOR = "corridor"
-    OUTDOOR = "outdoor"
-    FARM = "farm"
+    EMPTY = 0
+    WALL = 1
+    DOOR = 2
+    BEDROOM = 3
+    STORAGE = 4
+    WORKSHOP = 5
+    KITCHEN = 6
+    DINING = 7
+    RECREATION = 8
+    HOSPITAL = 9
+    RESEARCH = 10
+    POWER = 11
+    BATTERY = 12
+    CORRIDOR = 13
+    OUTDOOR = 14
+    FARM = 15
 
 
 @dataclass
