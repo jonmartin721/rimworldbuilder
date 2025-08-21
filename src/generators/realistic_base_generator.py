@@ -260,14 +260,17 @@ class RealisticBaseGenerator:
         
         height, width = room_grid.shape
         
-        # Check if room fits
-        if x + width > self.width or y + height > self.height:
+        # Check if room fits (ensure we don't go out of bounds)
+        if x < 0 or y < 0 or x + width > self.width or y + height > self.height:
             return False
             
         # Check for overlaps (only with non-empty cells)
         for dy in range(height):
             for dx in range(width):
                 if room_grid[dy, dx] != CellType.EMPTY:
+                    # Additional bounds check for safety
+                    if y + dy >= self.height or x + dx >= self.width:
+                        return False
                     if self.grid[y + dy, x + dx] != CellType.EMPTY:
                         return False
         
