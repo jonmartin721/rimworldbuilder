@@ -249,6 +249,8 @@ class MLTrainingGUI:
         
     def load_initial_datasets(self):
         """Load existing datasets on startup"""
+        dataset_summary = []
+        
         try:
             # Check for existing prefabs dataset
             prefabs_path = self.data_dir / "prefabs_dataset.pkl"
@@ -257,16 +259,122 @@ class MLTrainingGUI:
                 with open(prefabs_path, 'rb') as f:
                     examples = pickle.load(f)
                 self.log(f"Loaded existing prefabs dataset: {len(examples)} examples")
-                
-                # Update dataset info
-                self.dataset_info.set(f"Prefabs dataset loaded: {len(examples)} examples")
+                dataset_summary.append(f"Prefabs: {len(examples)}")
             else:
                 # Auto-collect prefabs if they don't exist
                 self.log("No prefabs dataset found. Collecting from AlphaPrefabs...")
                 self.collect_prefabs()
+                dataset_summary.append("Prefabs: collecting...")
+            
+            # Check for Reddit scraped data
+            reddit_dataset_path = self.data_dir / "reddit_dataset.pkl"
+            reddit_dir = Path("data/reddit_bases")
+            
+            if reddit_dataset_path.exists():
+                # Load existing processed Reddit dataset
+                import pickle
+                with open(reddit_dataset_path, 'rb') as f:
+                    reddit_examples = pickle.load(f)
+                self.log(f"Loaded existing Reddit dataset: {len(reddit_examples)} examples")
+                dataset_summary.append(f"Reddit: {len(reddit_examples)}")
+            elif reddit_dir.exists():
+                # Process raw Reddit images into dataset
+                images = list(reddit_dir.glob("images/*.png")) + list(reddit_dir.glob("images/*.jpg"))
+                if images:
+                    self.log(f"Found {len(images)} Reddit images. Processing into dataset...")
+                    dataset_summary.append(f"Reddit: processing {len(images)} images...")
+                    
+                    # Convert ALL Reddit images to training format
+                    self.process_reddit_images(images)  # Process all images
+            
+            # Update dataset info with all sources
+            if dataset_summary:
+                self.dataset_info.set(" | ".join(dataset_summary))
+            else:
+                self.dataset_info.set("No datasets loaded")
                 
         except Exception as e:
             self.log(f"Error loading initial datasets: {e}")
+    
+    def process_reddit_images(self, image_paths):
+        """Process Reddit images into training dataset format"""
+        try:
+            from PIL import Image
+            import numpy as np
+            import pickle
+            import json
+            from dataclasses import dataclass
+            
+            @dataclass
+            class RedditExample:
+                """Training example from Reddit"""
+                layout: np.ndarray  # Converted image as numpy array
+                source: str
+                title: str
+                score: int = 0
+                quality_scores: dict = None
+                
+            examples = []
+            processed = 0
+            
+            for img_path in image_paths:
+                try:
+                    # Load image
+                    img = Image.open(img_path)
+                    
+                    # Convert to RGB if needed
+                    if img.mode != 'RGB':
+                        img = img.convert('RGB')
+                    
+                    # Resize to standard size for training (128x128 for consistency)
+                    img_resized = img.resize((128, 128), Image.Resampling.LANCZOS)
+                    
+                    # Convert to numpy array (normalized 0-1)
+                    img_array = np.array(img_resized) / 255.0
+                    
+                    # Load metadata if available
+                    metadata_path = Path("data/reddit_bases/metadata") / f"{img_path.stem.split('_')[1]}.json"
+                    title = img_path.stem
+                    score = 0
+                    
+                    if metadata_path.exists():
+                        with open(metadata_path, 'r') as f:
+                            metadata = json.load(f)
+                            title = metadata.get('title', title)
+                            score = metadata.get('score', 0)
+                    
+                    # Create training example
+                    example = RedditExample(
+                        layout=img_array,
+                        source=f"reddit:{img_path.name}",
+                        title=title,
+                        score=score,
+                        quality_scores={'reddit_score': score}
+                    )
+                    examples.append(example)
+                    processed += 1
+                    
+                    # Close image
+                    img.close()
+                    
+                except Exception as e:
+                    self.log(f"Error processing {img_path.name}: {e}")
+            
+            if examples:
+                # Save as pickle dataset
+                dataset_path = self.data_dir / "reddit_dataset.pkl"
+                with open(dataset_path, 'wb') as f:
+                    pickle.dump(examples, f)
+                
+                self.log(f"Created Reddit dataset: {len(examples)} examples saved to reddit_dataset.pkl")
+                
+                # Update dataset info
+                self.dataset_info.set(f"Reddit dataset created: {len(examples)} examples")
+                
+        except Exception as e:
+            self.log(f"Error creating Reddit dataset: {e}")
+            import traceback
+            traceback.print_exc()
     
     def setup_ui(self):
         """Setup the user interface"""
@@ -526,7 +634,7 @@ class MLTrainingGUI:
         
         ttk.Button(control_frame, text="Collect from AlphaPrefabs", command=self.collect_prefabs).pack(side='left', padx=5)
         ttk.Button(control_frame, text="Generate Synthetic Data", command=self.generate_synthetic).pack(side='left', padx=5)
-        ttk.Button(control_frame, text="Collect Online Designs", command=self.collect_online_designs).pack(side='left', padx=5)
+        ttk.Button(control_frame, text="Scrape Reddit (External)", command=self.launch_reddit_scraper).pack(side='left', padx=5)
         ttk.Button(control_frame, text="Load Dataset", command=self.load_dataset).pack(side='left', padx=5)
         ttk.Button(control_frame, text="Export Dataset", command=self.export_dataset).pack(side='left', padx=5)
         
@@ -1006,39 +1114,50 @@ class MLTrainingGUI:
                 import traceback
                 traceback.print_exc()
     
-    def collect_online_designs(self):
-        """Collect base designs from online sources"""
+    
+    def launch_reddit_scraper(self):
+        """Launch the Reddit scraper tool"""
         try:
-            from src.ml.online_design_collector import OnlineDesignCollector
+            import subprocess
+            from tkinter import messagebox
             
-            self.log("Collecting online designs from Reddit...")
-            collector = OnlineDesignCollector(self.data_dir)
-            designs = collector.collect_all()
+            self.log("Launching Reddit scraper...")
             
-            if designs:
-                self.dataset_info.set(f"Collected {len(designs)} online designs")
-                self.log(f"Found {len(designs)} base designs online")
+            # Ask user for parameters
+            result = messagebox.askyesno(
+                "Reddit Scraper", 
+                "This will launch the Reddit scraper to collect base designs.\n\n"
+                "It will search:\n"
+                "• r/RimWorld - Main community subreddit\n"
+                "• r/RimWorldPorn - Dedicated to colony screenshots\n\n"
+                "This may take several minutes.\n\n"
+                "Continue?"
+            )
+            
+            if result:
+                # Run the scraper in background
+                self.log("Starting Reddit scraper (check console for progress)...")
+                subprocess.Popen([
+                    "poetry", "run", "python", "reddit_scraper.py",
+                    "--max-posts", "50",
+                    "--time", "month"
+                ])
                 
-                # Show preview
-                preview = f"Online Designs: {len(designs)} found\n\n"
-                for i, design in enumerate(designs[:5]):
-                    preview += f"Design {i+1}: {design.title}\n"
-                    preview += f"  Source: {design.source}\n"
-                    preview += f"  Score: {design.score} upvotes\n"
-                    if design.colonist_count:
-                        preview += f"  Colonists: {design.colonist_count}\n"
-                    preview += "\n"
+                self.log("Reddit scraper launched. Results will be in data/reddit_bases/")
+                self.log("Refresh datasets when scraping is complete.")
                 
-                self.dataset_text.delete(1.0, tk.END)
-                self.dataset_text.insert(1.0, preview)
-            else:
-                self.log("No online designs found")
-                
+                # Add refresh button hint
+                messagebox.showinfo(
+                    "Scraper Running",
+                    "The Reddit scraper is now running in the background.\n\n"
+                    "Check the console window for progress.\n"
+                    "When complete, restart this GUI to load the new data."
+                )
         except Exception as e:
-            print(f"ERROR: Failed to collect online designs: {str(e)}")
+            self.log(f"Error launching Reddit scraper: {e}")
+            print(f"ERROR: Failed to launch Reddit scraper: {str(e)}")
             import traceback
             traceback.print_exc()
-            self.log(f"ERROR: {str(e)}")
     
     def export_dataset(self):
         """Export dataset"""
