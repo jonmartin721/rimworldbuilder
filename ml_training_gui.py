@@ -216,6 +216,7 @@ class MLTrainingGUI:
             self.gpu_monitor = None
             
         self.trainer = None
+        self.model = None  # Initialize model attribute
         self.training_thread = None
         self.message_queue = queue.Queue()
         self.control_queue = queue.Queue()
@@ -575,6 +576,10 @@ class MLTrainingGUI:
                     data_dir=self.data_dir
                 )
                 
+                # Set model reference for preview generation
+                if hasattr(self.trainer, 'model'):
+                    self.model = self.trainer.model
+                
                 # Update config
                 self.trainer.config['batch_size'] = self.batch_size_var.get()
                 self.trainer.config['epochs'] = self.epochs_var.get()
@@ -656,6 +661,8 @@ class MLTrainingGUI:
             try:
                 if self.trainer is None:
                     self.trainer = InteractiveTrainer(self.model_dir, self.data_dir)
+                    if hasattr(self.trainer, 'model'):
+                        self.model = self.trainer.model
                 
                 # Convert to Path and ensure it exists
                 checkpoint_path = Path(filepath)
@@ -664,6 +671,11 @@ class MLTrainingGUI:
                 
                 self.log(f"Loading checkpoint: {filepath}")
                 self.trainer.gan.load(checkpoint_path)
+                # Update model reference after loading
+                if hasattr(self.trainer, 'model'):
+                    self.model = self.trainer.model
+                elif hasattr(self.trainer, 'gan'):
+                    self.model = self.trainer.gan
                 self.log(f"✓ Loaded checkpoint: {filepath}")
                 print(f"SUCCESS: Checkpoint loaded successfully from {filepath}")
             except Exception as e:
@@ -702,6 +714,8 @@ class MLTrainingGUI:
             self.log("Note: Untrained models produce random noise. Train the model first for meaningful results!")
             # Create trainer so user can test even without training
             self.trainer = InteractiveTrainer(self.model_dir, self.data_dir)
+            if hasattr(self.trainer, 'model'):
+                self.model = self.trainer.model
         
         try:
             # Create requirements
@@ -958,6 +972,8 @@ class MLTrainingGUI:
             if num:
                 if self.trainer is None:
                     self.trainer = InteractiveTrainer(self.model_dir, self.data_dir)
+                    if hasattr(self.trainer, 'model'):
+                        self.model = self.trainer.model
                 
                 self.log(f"Generating {num} synthetic examples...")
                 examples = self.trainer.generate_synthetic_data(num)
