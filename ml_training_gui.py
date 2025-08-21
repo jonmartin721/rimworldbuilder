@@ -303,16 +303,6 @@ class MLTrainingGUI:
             import numpy as np
             import pickle
             import json
-            from dataclasses import dataclass
-            
-            @dataclass
-            class RedditExample:
-                """Training example from Reddit"""
-                layout: np.ndarray  # Converted image as numpy array
-                source: str
-                title: str
-                score: int = 0
-                quality_scores: dict = None
                 
             examples = []
             processed = 0
@@ -343,14 +333,12 @@ class MLTrainingGUI:
                             title = metadata.get('title', title)
                             score = metadata.get('score', 0)
                     
-                    # Create training example
-                    example = RedditExample(
-                        layout=img_array,
-                        source=f"reddit:{img_path.name}",
-                        title=title,
-                        score=score,
-                        quality_scores={'reddit_score': score}
-                    )
+                    # Create training example as simple dict (pickleable)
+                    example = {
+                        'layout': img_array,
+                        'source': f"reddit:{img_path.name}",
+                        'quality_scores': {'reddit_score': score}
+                    }
                     examples.append(example)
                     processed += 1
                     
