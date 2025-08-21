@@ -388,6 +388,108 @@ class DatasetCollector:
             self.data_dir / "user_feedback.json"
         )
     
+    def _convert_reddit_to_examples(self, reddit_data: List[Dict]) -> List[BaseExample]:
+        """Convert Reddit dataset to BaseExample format"""
+        examples = []
+        
+        for item in reddit_data:
+            # Reddit images are just pixels, we need to generate synthetic requirements
+            layout = item.get('layout')
+            if layout is None:
+                continue
+            
+            # Handle RGB images (convert to grayscale)
+            if len(layout.shape) == 3:
+                # If it's RGB, convert to grayscale
+                if layout.shape[2] == 3:
+                    layout = np.mean(layout, axis=2)
+                else:
+                    layout = layout[:, :, 0]  # Just take first channel
+            
+            # Convert from normalized (0-1) back to categorical
+            if layout.dtype == np.float32 or layout.dtype == np.float64:
+                if layout.max() <= 1.0:
+                    # Quantize to discrete cell types
+                    layout = (layout * 10).astype(np.int32)  # Convert to cell types
+            
+            # Ensure 2D
+            if len(layout.shape) != 2:
+                continue
+            
+            # Analyze the layout to infer requirements
+            height, width = layout.shape
+            
+            # Generate synthetic requirements based on image
+            # Since we can't know the actual requirements, make reasonable guesses
+            requirements = BaseRequirements(
+                num_colonists=np.random.randint(5, 15),  # Random colonist count
+                num_bedrooms=np.random.randint(4, 10),
+                num_workshops=np.random.randint(1, 4),
+                has_kitchen=True,  # Assume most bases have kitchen
+                has_hospital=np.random.rand() > 0.5,
+                has_recreation=np.random.rand() > 0.5,
+                defense_level=np.random.rand(),
+                beauty_preference=np.random.rand(),
+                efficiency_preference=0.5 + np.random.rand() * 0.5,
+                size_constraint=(width, height)
+            )
+            
+            # Use Reddit score if available for quality
+            reddit_score = item.get('quality_scores', {}).get('reddit_score', 0)
+            normalized_score = min(1.0, reddit_score / 1000.0)  # Normalize Reddit scores
+            
+            quality = {
+                'efficiency': 0.5 + normalized_score * 0.3,
+                'beauty': 0.5 + normalized_score * 0.3,
+                'defense': 0.5,
+                'connectivity': 0.6,
+                'space_usage': 0.7,
+            }
+            
+            example = BaseExample(
+                layout=layout,
+                requirements=requirements,
+                quality_scores=quality,
+                source=item.get('source', 'reddit'),
+                description=f"Reddit image (score: {reddit_score})"
+            )
+            examples.append(example)
+        
+        return examples
+    
+    def _convert_rule_based_to_examples(self, rule_based_data: List[Dict]) -> List[BaseExample]:
+        """Convert rule-based dataset to BaseExample format"""
+        examples = []
+        
+        for item in rule_based_data:
+            # Rule-based examples should have proper requirements
+            layout = item.get('layout') or item.get('original_layout')
+            requirements = item.get('requirements')
+            quality_scores = item.get('quality_scores', {})
+            
+            if layout is None or requirements is None:
+                continue
+            
+            # Convert layout if needed
+            if layout.dtype == np.float32 or layout.dtype == np.float64:
+                if layout.max() <= 1.0:
+                    layout = (layout * 10).astype(np.int32)
+            
+            # Ensure requirements is BaseRequirements object
+            if isinstance(requirements, dict):
+                requirements = BaseRequirements(**requirements)
+            
+            example = BaseExample(
+                layout=layout,
+                requirements=requirements,
+                quality_scores=quality_scores,
+                source=item.get('source', 'rule_based'),
+                description="Rule-based generated example"
+            )
+            examples.append(example)
+        
+        return examples
+    
     def collect_all_data(self) -> List[BaseExample]:
         """Collect data from all sources"""
         all_examples = []
@@ -398,12 +500,39 @@ class DatasetCollector:
         all_examples.extend(prefab_examples)
         logger.info(f"Collected {len(prefab_examples)} from AlphaPrefabs")
         
+        # Load Reddit dataset if available
+        reddit_path = self.data_dir / "reddit_dataset.pkl"
+        if reddit_path.exists():
+            logger.info("Loading Reddit dataset...")
+            try:
+                with open(reddit_path, 'rb') as f:
+                    reddit_data = pickle.load(f)
+                reddit_examples = self._convert_reddit_to_examples(reddit_data)
+                all_examples.extend(reddit_examples)
+                logger.info(f"Collected {len(reddit_examples)} from Reddit")
+            except Exception as e:
+                logger.error(f"Failed to load Reddit dataset: {e}")
+        
+        # Load rule-based dataset if available
+        rule_based_path = self.data_dir / "rule_based_dataset.pkl"
+        if rule_based_path.exists():
+            logger.info("Loading rule-based dataset...")
+            try:
+                with open(rule_based_path, 'rb') as f:
+                    rule_based_data = pickle.load(f)
+                rule_based_examples = self._convert_rule_based_to_examples(rule_based_data)
+                all_examples.extend(rule_based_examples)
+                logger.info(f"Collected {len(rule_based_examples)} from rule-based")
+            except Exception as e:
+                logger.error(f"Failed to load rule-based dataset: {e}")
+        
         # Collect from user feedback
         logger.info("Collecting from user feedback...")
         feedback_examples = self.feedback_collector.get_examples()
         all_examples.extend(feedback_examples)
         logger.info(f"Collected {len(feedback_examples)} from user feedback")
         
+        logger.info(f"Total training examples: {len(all_examples)}")
         return all_examples
     
     def save_dataset(self, examples: List[BaseExample], filename: str = "base_dataset.pkl"):
