@@ -3,7 +3,6 @@ Zone-aware base generator that respects terrain analysis and user zone preferenc
 """
 
 import numpy as np
-from typing import Dict, List, Optional, Tuple
 from dataclasses import dataclass
 
 from src.generators.enhanced_hybrid_generator import EnhancedHybridGenerator
@@ -16,7 +15,7 @@ class ZoneRequirements:
     """Requirements for a specific zone"""
 
     zone_type: ZoneType
-    components: List[str]  # What to build here
+    components: list[str]  # What to build here
     priority: int  # 1 = highest priority
     bridge_type: str  # 'heavy', 'wood', or 'auto'
     density: float  # 0.0 to 1.0, how densely to build
@@ -47,7 +46,7 @@ class ZoneAwareGenerator(EnhancedHybridGenerator):
         self.bridge_plan = None
 
     def generate_with_zones(
-        self, width: int, height: int, requirements: Dict, zone_preferences: Dict
+        self, width: int, height: int, requirements: dict, zone_preferences: dict
     ) -> BaseGrid:
         """
         Generate a base considering terrain zones
@@ -91,8 +90,8 @@ class ZoneAwareGenerator(EnhancedHybridGenerator):
         return grid
 
     def _plan_zone_usage(
-        self, requirements: Dict, preferences: Dict
-    ) -> List[ZoneRequirements]:
+        self, requirements: dict, preferences: dict
+    ) -> list[ZoneRequirements]:
         """Plan how to use available zones"""
         plan = []
 
@@ -197,7 +196,7 @@ class ZoneAwareGenerator(EnhancedHybridGenerator):
 
         return plan
 
-    def _get_all_components(self, requirements: Dict) -> List[str]:
+    def _get_all_components(self, requirements: dict) -> list[str]:
         """Extract all components from requirements"""
         components = []
         if "rooms" in requirements:
@@ -205,7 +204,7 @@ class ZoneAwareGenerator(EnhancedHybridGenerator):
                 components.append(room.get("type", "generic"))
         return components if components else ["bedrooms", "storage", "dining"]
 
-    def _select_perimeter_zones(self, zones: List[TerrainZone]) -> List[TerrainZone]:
+    def _select_perimeter_zones(self, zones: list[TerrainZone]) -> list[TerrainZone]:
         """Select zones that form a good perimeter"""
         # Simple selection - pick zones that are far from center and form a ring
         # In a real implementation, would use more sophisticated algorithm
@@ -236,7 +235,7 @@ class ZoneAwareGenerator(EnhancedHybridGenerator):
         return selected
 
     def _generate_zone(
-        self, grid: BaseGrid, zone_req: ZoneRequirements, requirements: Dict
+        self, grid: BaseGrid, zone_req: ZoneRequirements, requirements: dict
     ):
         """Generate structures for a specific zone"""
         # Find the actual zone bounds
@@ -377,7 +376,7 @@ class ZoneAwareGenerator(EnhancedHybridGenerator):
                 if grid.get_cell(i, j) == CellType.EMPTY:
                     grid.set_cell(i, j, CellType.FLOOR)
 
-    def _connect_zones(self, grid: BaseGrid, zone_plan: List[ZoneRequirements]):
+    def _connect_zones(self, grid: BaseGrid, zone_plan: list[ZoneRequirements]):
         """Connect zones with paths or bridges"""
         if len(zone_plan) < 2:
             return
@@ -397,7 +396,7 @@ class ZoneAwareGenerator(EnhancedHybridGenerator):
 
                 self._create_path(grid, start, end)
 
-    def _get_zone_for_requirement(self, req: ZoneRequirements) -> Optional[TerrainZone]:
+    def _get_zone_for_requirement(self, req: ZoneRequirements) -> TerrainZone | None:
         """Get the terrain zone for a requirement"""
         for zone, zone_req in self.zone_assignments.items():
             if zone_req == req:
@@ -405,7 +404,7 @@ class ZoneAwareGenerator(EnhancedHybridGenerator):
         return None
 
     def _create_path(
-        self, grid: BaseGrid, start: Tuple[int, int], end: Tuple[int, int]
+        self, grid: BaseGrid, start: tuple[int, int], end: tuple[int, int]
     ):
         """Create a path between two points"""
         x1, y1 = start

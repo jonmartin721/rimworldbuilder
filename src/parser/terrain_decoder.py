@@ -6,7 +6,6 @@ Based on community reverse engineering efforts.
 import base64
 import zlib
 import struct
-from typing import List, Tuple, Optional
 import numpy as np
 from lxml import etree
 import logging
@@ -44,7 +43,7 @@ class TerrainDecoder:
         self.unknown_ids = set()
         self.foundation_grid = None
 
-    def decode_terrain_grid(self, map_elem: etree.Element) -> Optional[np.ndarray]:
+    def decode_terrain_grid(self, map_elem: etree.Element) -> np.ndarray | None:
         """
         Decode the terrain grid from a map element.
 
@@ -101,7 +100,7 @@ class TerrainDecoder:
             logger.error(f"Failed to decode terrain grid: {e}")
             return None
 
-    def decode_foundation_grid(self, map_elem: etree.Element) -> Optional[np.ndarray]:
+    def decode_foundation_grid(self, map_elem: etree.Element) -> np.ndarray | None:
         """Decode the foundationGridDeflate (buildable bridges/floors)"""
         terrain_grid = map_elem.find("terrainGrid")
         if terrain_grid is None:
@@ -139,7 +138,7 @@ class TerrainDecoder:
             logger.error(f"Failed to decode foundation grid: {e}")
             return None
 
-    def decode_under_grid(self, map_elem: etree.Element) -> Optional[np.ndarray]:
+    def decode_under_grid(self, map_elem: etree.Element) -> np.ndarray | None:
         """Decode the underGridDeflate (terrain under buildings)"""
         terrain_grid = map_elem.find("terrainGrid")
         if terrain_grid is None:
@@ -167,7 +166,7 @@ class TerrainDecoder:
             logger.error(f"Failed to decode under grid: {e}")
             return None
 
-    def _get_map_size(self, map_elem: etree.Element) -> Tuple[int, int]:
+    def _get_map_size(self, map_elem: etree.Element) -> tuple[int, int]:
         """Extract map dimensions from map element"""
         # First try to detect from decompressed data size
         terrain_grid = map_elem.find("terrainGrid")
@@ -249,7 +248,7 @@ class TerrainDecoder:
             for terrain_id, count in possible_bridge_ids:
                 logger.info(f"  ID 0x{terrain_id:04X} ({terrain_id}): {count} tiles")
 
-    def find_bridges(self, grid: np.ndarray) -> List[Tuple[int, int]]:
+    def find_bridges(self, grid: np.ndarray) -> list[tuple[int, int]]:
         """
         Find positions of bridge tiles in the terrain grid.
 

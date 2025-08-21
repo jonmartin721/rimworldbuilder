@@ -9,7 +9,7 @@ Analyzes patterns in pre-made designs from mods like Prefabs to understand:
 """
 
 import numpy as np
-from typing import List, Dict, Tuple, Optional
+from typing import Optional
 from dataclasses import dataclass
 from collections import defaultdict
 import json
@@ -27,9 +27,9 @@ class PrefabDesign:
     width: int
     height: int
     layout: np.ndarray  # 2D array of tile types
-    metadata: Dict  # Additional info (author, purpose, etc.)
+    metadata: dict  # Additional info (author, purpose, etc.)
 
-    def get_rooms(self) -> List["Room"]:
+    def get_rooms(self) -> list["Room"]:
         """Extract individual rooms from the design"""
         # Use flood fill to identify connected components (rooms)
         visited = np.zeros_like(self.layout, dtype=bool)
@@ -80,7 +80,7 @@ class PrefabDesign:
 class Room:
     """Represents a room extracted from a prefab"""
 
-    tiles: List[Tuple[int, int]]
+    tiles: list[tuple[int, int]]
     room_type: int
 
     @property
@@ -88,7 +88,7 @@ class Room:
         return len(self.tiles)
 
     @property
-    def bounds(self) -> Tuple[int, int, int, int]:
+    def bounds(self) -> tuple[int, int, int, int]:
         """Get bounding box (min_x, min_y, max_x, max_y)"""
         xs = [x for x, y in self.tiles]
         ys = [y for x, y in self.tiles]
@@ -107,7 +107,7 @@ class PrefabAnalyzer:
     """Analyzes prefab designs to learn patterns"""
 
     def __init__(self):
-        self.prefabs: List[PrefabDesign] = []
+        self.prefabs: list[PrefabDesign] = []
         self.patterns = {
             "room_sizes": defaultdict(list),  # room_type -> [sizes]
             "room_shapes": defaultdict(list),  # room_type -> [aspect_ratios]
@@ -119,7 +119,7 @@ class PrefabAnalyzer:
             "defensive_patterns": [],  # Wall and turret placement patterns
         }
 
-    def load_prefab_from_xml(self, xml_path: Path) -> Optional[PrefabDesign]:
+    def load_prefab_from_xml(self, xml_path: Path) -> PrefabDesign | None:
         """
         Load a prefab design from RimWorld mod XML format.
         This would parse the actual prefab mod files.
@@ -244,7 +244,7 @@ class PrefabAnalyzer:
 
         self.patterns["traffic_patterns"].append(traffic_heat)
 
-    def get_learned_rules(self) -> Dict:
+    def get_learned_rules(self) -> dict:
         """
         Extract learned rules from analyzed prefabs.
         These rules can be used to generate new designs.
@@ -294,7 +294,7 @@ class PrefabAnalyzer:
         return rules
 
     def generate_from_learned_patterns(
-        self, width: int, height: int, required_rooms: List[int]
+        self, width: int, height: int, required_rooms: list[int]
     ) -> np.ndarray:
         """
         Generate a new base layout using learned patterns.
@@ -345,9 +345,9 @@ class PrefabAnalyzer:
         room_type: int,
         room_width: int,
         room_height: int,
-        placed_rooms: List,
-        adjacency_rules: Dict,
-    ) -> Optional[Tuple[int, int]]:
+        placed_rooms: list,
+        adjacency_rules: dict,
+    ) -> tuple[int, int] | None:
         """Try to place a room in the layout based on learned rules"""
         height, width = layout.shape
 
@@ -394,7 +394,7 @@ class PrefabAnalyzer:
         room_width: int,
         room_height: int,
         room_type: int,
-        adjacency_rules: Dict,
+        adjacency_rules: dict,
     ) -> float:
         """Calculate how good a placement is based on learned adjacency rules"""
         score = 0.0
@@ -447,7 +447,7 @@ class PrefabAnalyzer:
 
     def load_learned_patterns(self, filepath: Path):
         """Load previously learned patterns"""
-        with open(filepath, "r") as f:
+        with open(filepath) as f:
             rules = json.load(f)
 
         # Convert lists back to numpy arrays where needed

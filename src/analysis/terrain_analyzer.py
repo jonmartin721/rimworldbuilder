@@ -3,7 +3,6 @@ Terrain analyzer for detecting buildable areas, zones, and terrain features
 """
 
 import numpy as np
-from typing import Dict, List, Tuple, Optional, Set
 from dataclasses import dataclass
 from scipy import ndimage
 from enum import Enum
@@ -45,14 +44,14 @@ class TerrainZone:
     """Represents a distinct zone on the map"""
 
     zone_type: ZoneType
-    bounds: Tuple[int, int, int, int]  # x, y, width, height
+    bounds: tuple[int, int, int, int]  # x, y, width, height
     area: int  # Total tiles
     buildable_area: int  # Buildable tiles
-    terrain_composition: Dict[TerrainType, int]  # Terrain type counts
+    terrain_composition: dict[TerrainType, int]  # Terrain type counts
     connectivity: float  # How connected this zone is (0-1)
     distance_from_center: float  # Distance from map center
     is_island: bool  # Whether completely surrounded by water
-    adjacent_zones: List["TerrainZone"]  # Connected zones
+    adjacent_zones: list["TerrainZone"]  # Connected zones
 
 
 @dataclass
@@ -63,7 +62,7 @@ class BuildableArea:
     y: int
     width: int
     height: int
-    tiles: Set[Tuple[int, int]]
+    tiles: set[tuple[int, int]]
     area: int
     is_primary: bool  # Is this the main base area?
     has_water_access: bool
@@ -85,8 +84,8 @@ class TerrainAnalyzer:
         self.buildable_areas = []
 
     def analyze_terrain(
-        self, game_state, foundation_grid: Optional[np.ndarray] = None
-    ) -> Dict:
+        self, game_state, foundation_grid: np.ndarray | None = None
+    ) -> dict:
         """
         Analyze terrain from game state and foundation grid
         Returns comprehensive terrain analysis
@@ -168,7 +167,7 @@ class TerrainAnalyzer:
             # All existing structures can be demolished and replaced
             # Only terrain features (water, mountains) are true constraints
 
-    def _find_buildable_areas(self) -> List[BuildableArea]:
+    def _find_buildable_areas(self) -> list[BuildableArea]:
         """Find contiguous buildable areas using connected component analysis"""
         # Label connected components
         labeled, num_features = ndimage.label(self.buildable_mask)
@@ -227,7 +226,7 @@ class TerrainAnalyzer:
 
         return areas
 
-    def _identify_zones(self) -> List[TerrainZone]:
+    def _identify_zones(self) -> list[TerrainZone]:
         """Identify different zones based on terrain and position"""
         zones = []
 
@@ -286,7 +285,7 @@ class TerrainAnalyzer:
 
         return zones
 
-    def _check_water_adjacency(self, tiles: Set[Tuple[int, int]]) -> bool:
+    def _check_water_adjacency(self, tiles: set[tuple[int, int]]) -> bool:
         """Check if any tiles are adjacent to water"""
         for x, y in tiles:
             # Check all adjacent tiles
@@ -306,8 +305,8 @@ class TerrainAnalyzer:
         return np.sum(perimeter_mask)
 
     def _analyze_terrain_composition(
-        self, tiles: Set[Tuple[int, int]]
-    ) -> Dict[TerrainType, int]:
+        self, tiles: set[tuple[int, int]]
+    ) -> dict[TerrainType, int]:
         """Analyze terrain types in given tiles"""
         composition = {}
 
@@ -317,7 +316,7 @@ class TerrainAnalyzer:
 
         return composition
 
-    def _find_adjacent_zones(self, zones: List[TerrainZone]):
+    def _find_adjacent_zones(self, zones: list[TerrainZone]):
         """Find which zones are adjacent to each other"""
         for i, zone1 in enumerate(zones):
             for j, zone2 in enumerate(zones[i + 1 :], i + 1):
@@ -351,7 +350,7 @@ class TerrainAnalyzer:
 
         return connectivity
 
-    def _find_optimal_locations(self) -> Dict[str, Tuple[int, int]]:
+    def _find_optimal_locations(self) -> dict[str, tuple[int, int]]:
         """Find optimal locations for different purposes"""
         locations = {}
 
@@ -380,7 +379,7 @@ class TerrainAnalyzer:
 
         return locations
 
-    def _get_terrain_stats(self) -> Dict:
+    def _get_terrain_stats(self) -> dict:
         """Get statistics about the terrain"""
         return {
             "total_tiles": self.map_width * self.map_height,
@@ -396,7 +395,7 @@ class TerrainAnalyzer:
             else 0,
         }
 
-    def get_zone_for_position(self, x: int, y: int) -> Optional[TerrainZone]:
+    def get_zone_for_position(self, x: int, y: int) -> TerrainZone | None:
         """Get the zone containing the given position"""
         for zone in self.zones:
             zx, zy, zw, zh = zone.bounds
@@ -404,7 +403,7 @@ class TerrainAnalyzer:
                 return zone
         return None
 
-    def suggest_base_layout(self, requirements: Dict) -> Dict:
+    def suggest_base_layout(self, requirements: dict) -> dict:
         """
         Suggest optimal base layout based on terrain analysis and requirements
 

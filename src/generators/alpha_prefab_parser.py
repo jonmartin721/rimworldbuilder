@@ -6,7 +6,6 @@ Extracts prefab designs from the mod for pattern learning.
 import xml.etree.ElementTree as ET
 import numpy as np
 from pathlib import Path
-from typing import List, Optional
 import logging
 from dataclasses import dataclass
 
@@ -22,10 +21,10 @@ class AlphaPrefabLayout:
     def_name: str
     width: int
     height: int
-    layout_grid: List[List[str]]  # Raw item names
-    terrain_grid: Optional[List[List[str]]] = None
-    roof_grid: Optional[List[List[str]]] = None
-    variations: List[str] = None
+    layout_grid: list[list[str]]  # Raw item names
+    terrain_grid: list[list[str]] | None = None
+    roof_grid: list[list[str]] | None = None
+    variations: list[str] = None
 
 
 class AlphaPrefabParser:
@@ -67,7 +66,7 @@ class AlphaPrefabParser:
         self.layouts_path = self.mod_path / "1.5" / "Defs" / "LayoutDefs"
         self.prefab_defs_path = self.mod_path / "1.5" / "Defs" / "PrefabDefs"
 
-    def parse_all_layouts(self) -> List[AlphaPrefabLayout]:
+    def parse_all_layouts(self) -> list[AlphaPrefabLayout]:
         """Parse all layout files in the mod"""
         all_layouts = []
 
@@ -87,7 +86,7 @@ class AlphaPrefabParser:
         logger.info(f"Parsed {len(all_layouts)} layouts total")
         return all_layouts
 
-    def parse_layout_file(self, filepath: Path) -> List[AlphaPrefabLayout]:
+    def parse_layout_file(self, filepath: Path) -> list[AlphaPrefabLayout]:
         """Parse a single layout XML file"""
         layouts = []
 
@@ -106,7 +105,7 @@ class AlphaPrefabParser:
 
         return layouts
 
-    def _parse_layout_def(self, layout_def: ET.Element) -> Optional[AlphaPrefabLayout]:
+    def _parse_layout_def(self, layout_def: ET.Element) -> AlphaPrefabLayout | None:
         """Parse a single StructureLayoutDef element"""
         try:
             def_name = layout_def.find("defName").text
@@ -246,7 +245,7 @@ class AlphaPrefabParser:
         else:
             return "general"
 
-    def load_category_layouts(self, category: str) -> List[PrefabDesign]:
+    def load_category_layouts(self, category: str) -> list[PrefabDesign]:
         """Load all layouts for a specific category"""
         all_layouts = self.parse_all_layouts()
         prefab_designs = []

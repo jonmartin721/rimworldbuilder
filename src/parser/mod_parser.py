@@ -5,7 +5,6 @@ Extracts building definitions, materials, and properties from mod XML files.
 
 import xml.etree.ElementTree as ET
 from pathlib import Path
-from typing import List, Dict, Optional, Set
 from dataclasses import dataclass, field
 import logging
 
@@ -24,10 +23,10 @@ class BuildingDef:
     passability: str = "Impassable"
     fill_percent: float = 1.0
     terrain_affordance: str = "Light"
-    cost_list: Dict[str, int] = field(default_factory=dict)
+    cost_list: dict[str, int] = field(default_factory=dict)
     work_to_build: int = 0
     designator_dropdown: str = ""
-    research_prerequisites: List[str] = field(default_factory=list)
+    research_prerequisites: list[str] = field(default_factory=list)
     comfort: float = 0.0
     beauty: int = 0
     cleanliness: float = 0.0
@@ -40,7 +39,7 @@ class BuildingDef:
     is_production: bool = False
     is_power: bool = False
     is_joy: bool = False
-    tags: Set[str] = field(default_factory=set)
+    tags: set[str] = field(default_factory=set)
 
 
 class ModParser:
@@ -54,9 +53,9 @@ class ModParser:
             mod_path: Path to the mod folder (e.g., data/AlphaPrefabs)
         """
         self.mod_path = mod_path
-        self.building_defs: Dict[str, BuildingDef] = {}
+        self.building_defs: dict[str, BuildingDef] = {}
 
-    def parse_all_defs(self) -> Dict[str, BuildingDef]:
+    def parse_all_defs(self) -> dict[str, BuildingDef]:
         """Parse all building definitions in the mod"""
         self.building_defs.clear()
 
@@ -100,7 +99,7 @@ class ModParser:
         except Exception as e:
             logger.error(f"Error parsing {filepath}: {e}")
 
-    def _parse_thing_def(self, thing_def: ET.Element) -> Optional[BuildingDef]:
+    def _parse_thing_def(self, thing_def: ET.Element) -> BuildingDef | None:
         """Parse a single ThingDef element"""
         try:
             def_name = self._get_text(thing_def, "defName")
@@ -266,7 +265,7 @@ class ModParser:
             or "Pool" in def_name
         )
 
-    def _extract_tags(self, thing_def: ET.Element) -> Set[str]:
+    def _extract_tags(self, thing_def: ET.Element) -> set[str]:
         """Extract all tags from the definition"""
         tags = set()
 
@@ -302,7 +301,7 @@ class ModParser:
             pass
         return (1, 1)
 
-    def _parse_cost_list(self, cost_list: ET.Element) -> Dict[str, int]:
+    def _parse_cost_list(self, cost_list: ET.Element) -> dict[str, int]:
         """Parse cost list element"""
         costs = {}
         for child in cost_list:
@@ -334,7 +333,7 @@ class ModParser:
         except (ValueError, TypeError):
             return default
 
-    def get_buildings_by_category(self, category: str) -> List[BuildingDef]:
+    def get_buildings_by_category(self, category: str) -> list[BuildingDef]:
         """Get all buildings of a certain category"""
         return [
             b
@@ -352,7 +351,7 @@ class ModParser:
         is_production: bool = None,
         is_power: bool = None,
         is_joy: bool = None,
-    ) -> List[BuildingDef]:
+    ) -> list[BuildingDef]:
         """Get buildings matching specified type flags"""
         results = []
         for building in self.building_defs.values():

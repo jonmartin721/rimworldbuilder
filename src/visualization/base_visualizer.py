@@ -4,7 +4,6 @@ Base visualization module with proper color mapping and error handling.
 
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
-from typing import Dict, Optional
 import logging
 
 logger = logging.getLogger(__name__)
@@ -69,7 +68,7 @@ class BaseVisualizer:
         self,
         grid: np.ndarray,
         filename: str = "base_visualization.png",
-        title: Optional[str] = None,
+        title: str | None = None,
         show_legend: bool = True,
     ) -> Image.Image:
         """
@@ -111,7 +110,7 @@ class BaseVisualizer:
             try:
                 # Try to use a nice font
                 font = ImageFont.truetype("arial.ttf", 16)
-            except (IOError, OSError):
+            except OSError:
                 font = None
 
             draw.text(
@@ -182,7 +181,7 @@ class BaseVisualizer:
         """Draw legend showing tile types"""
         try:
             font = ImageFont.truetype("arial.ttf", 10)
-        except (IOError, OSError):
+        except OSError:
             font = None
 
         # Legend background
@@ -216,7 +215,7 @@ class BaseVisualizer:
                 y += 18
 
     def create_comparison(
-        self, grids: Dict[str, np.ndarray], filename: str = "comparison.png"
+        self, grids: dict[str, np.ndarray], filename: str = "comparison.png"
     ) -> Image.Image:
         """
         Create side-by-side comparison of multiple grids.
@@ -262,7 +261,7 @@ class BaseVisualizer:
 
         return combined
 
-    def analyze_grid(self, grid: np.ndarray) -> Dict:
+    def analyze_grid(self, grid: np.ndarray) -> dict:
         """
         Analyze grid and return statistics.
 

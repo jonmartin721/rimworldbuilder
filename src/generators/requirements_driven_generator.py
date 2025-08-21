@@ -4,7 +4,6 @@ This generator acts as the bridge between high-level requirements and actual pre
 """
 
 import numpy as np
-from typing import List, Tuple, Optional
 from pathlib import Path
 from dataclasses import dataclass
 import random
@@ -26,7 +25,7 @@ class PrefabMatch:
     prefab: AlphaPrefabLayout
     score: float
     room_spec: RoomSpec
-    reasons: List[str]
+    reasons: list[str]
 
 
 class RequirementsDrivenGenerator(EnhancedHybridGenerator):
@@ -36,8 +35,8 @@ class RequirementsDrivenGenerator(EnhancedHybridGenerator):
         self,
         width: int,
         height: int,
-        alpha_prefabs_path: Optional[Path] = None,
-        learned_patterns_file: Optional[Path] = None,
+        alpha_prefabs_path: Path | None = None,
+        learned_patterns_file: Path | None = None,
         mod_config: ModConfig = ModConfig.REALISTIC_ROOMS,
     ):
         super().__init__(width, height, alpha_prefabs_path, learned_patterns_file)
@@ -62,8 +61,8 @@ class RequirementsDrivenGenerator(EnhancedHybridGenerator):
 
     def generate_from_requirements(
         self,
-        requirements: Optional[BaseRequirements] = None,
-        design_plan: Optional[BaseDesignPlan] = None,
+        requirements: BaseRequirements | None = None,
+        design_plan: BaseDesignPlan | None = None,
     ) -> np.ndarray:
         """
         Generate a base from high-level requirements and/or detailed design plan.
@@ -274,7 +273,7 @@ class RequirementsDrivenGenerator(EnhancedHybridGenerator):
             estimated_resources={},
         )
 
-    def _match_prefabs_to_specs(self, room_specs: List[RoomSpec]) -> List[PrefabMatch]:
+    def _match_prefabs_to_specs(self, room_specs: list[RoomSpec]) -> list[PrefabMatch]:
         """Find best prefab matches for each room specification"""
         matches = []
 
@@ -306,7 +305,7 @@ class RequirementsDrivenGenerator(EnhancedHybridGenerator):
 
         return matches
 
-    def _get_candidate_prefabs(self, room_type: str) -> List[AlphaPrefabLayout]:
+    def _get_candidate_prefabs(self, room_type: str) -> list[AlphaPrefabLayout]:
         """Get prefabs that could work for a room type"""
         candidates = []
 
@@ -332,7 +331,7 @@ class RequirementsDrivenGenerator(EnhancedHybridGenerator):
 
     def _score_prefab_for_spec(
         self, prefab: AlphaPrefabLayout, spec: RoomSpec
-    ) -> Tuple[float, List[str]]:
+    ) -> tuple[float, list[str]]:
         """Score how well a prefab matches a room specification"""
         score = 0.0
         reasons = []
@@ -387,7 +386,7 @@ class RequirementsDrivenGenerator(EnhancedHybridGenerator):
         return score, reasons
 
     def _try_place_prefab_smart(
-        self, match: PrefabMatch, placed: List[PrefabMatch]
+        self, match: PrefabMatch, placed: list[PrefabMatch]
     ) -> bool:
         """Intelligently place a prefab considering adjacency preferences"""
         prefab = match.prefab
@@ -425,7 +424,7 @@ class RequirementsDrivenGenerator(EnhancedHybridGenerator):
         return False
 
     def _score_position(
-        self, x: int, y: int, spec: RoomSpec, placed: List[PrefabMatch]
+        self, x: int, y: int, spec: RoomSpec, placed: list[PrefabMatch]
     ) -> float:
         """Score a position based on room requirements and best practices"""
         score = 0.0

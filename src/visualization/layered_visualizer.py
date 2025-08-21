@@ -4,7 +4,6 @@ Enhanced layered visualization system with individual layer controls.
 
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
-from typing import Dict, List, Optional
 import logging
 
 logger = logging.getLogger(__name__)
@@ -131,7 +130,7 @@ class LayeredVisualizer:
         if layer_name in self.enabled_layers:
             self.enabled_layers[layer_name] = visible
 
-    def get_layer_info(self) -> List[Dict]:
+    def get_layer_info(self) -> list[dict]:
         """Get information about all layers"""
         return [
             {
@@ -146,7 +145,7 @@ class LayeredVisualizer:
     def visualize(
         self,
         grid: np.ndarray,
-        title: Optional[str] = None,
+        title: str | None = None,
         show_grid: bool = True,
         show_legend: bool = True,
         flip_y: bool = False,
@@ -185,7 +184,7 @@ class LayeredVisualizer:
         if title:
             try:
                 font = ImageFont.truetype("arial.ttf", 18)
-            except (IOError, OSError):
+            except OSError:
                 font = None
             draw.text(
                 (total_width // 2, 20),
@@ -260,7 +259,7 @@ class LayeredVisualizer:
         try:
             font = ImageFont.truetype("arial.ttf", 11)
             small_font = ImageFont.truetype("arial.ttf", 9)
-        except (IOError, OSError):
+        except OSError:
             font = None
             small_font = None
 
@@ -332,7 +331,7 @@ class LayeredVisualizer:
 
             y += 25
 
-    def create_layer_images(self, grid: np.ndarray) -> Dict[str, Image.Image]:
+    def create_layer_images(self, grid: np.ndarray) -> dict[str, Image.Image]:
         """Create separate image for each layer"""
         images = {}
         height, width = grid.shape
@@ -364,7 +363,7 @@ class LayeredVisualizer:
         return images
 
     def create_composite(
-        self, grid: np.ndarray, layers_to_show: Optional[List[str]] = None
+        self, grid: np.ndarray, layers_to_show: list[str] | None = None
     ) -> Image.Image:
         """Create composite image with specified layers"""
         if layers_to_show is None:

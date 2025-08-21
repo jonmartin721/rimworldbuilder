@@ -5,7 +5,6 @@ Progress indicators and logging utilities for better user feedback.
 import sys
 import time
 import threading
-from typing import Optional
 from contextlib import contextmanager
 
 # Set UTF-8 encoding for Windows
@@ -74,7 +73,7 @@ class Spinner:
         self.thread.daemon = True
         self.thread.start()
 
-    def stop(self, final_message: Optional[str] = None):
+    def stop(self, final_message: str | None = None):
         """Stop the spinner"""
         self.running = False
         if self.thread:
@@ -97,7 +96,7 @@ class ProgressBar:
         self.prefix = prefix
         self.current = 0
 
-    def update(self, current: Optional[int] = None, message: str = ""):
+    def update(self, current: int | None = None, message: str = ""):
         """Update progress bar"""
         if current is not None:
             self.current = current
@@ -137,7 +136,7 @@ class StepProgress:
         self.current_step = 0
         self.total_steps = len(steps)
 
-    def start_step(self, step_name: Optional[str] = None):
+    def start_step(self, step_name: str | None = None):
         """Start a new step"""
         if step_name is None and self.current_step < self.total_steps:
             step_name = self.steps[self.current_step]

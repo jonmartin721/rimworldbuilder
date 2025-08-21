@@ -3,7 +3,6 @@ import io
 import base64
 import zlib
 from pathlib import Path
-from typing import Optional, List, Tuple
 from lxml import etree
 import logging
 
@@ -193,7 +192,7 @@ class RimWorldSaveParser:
             date=self._get_text(game, "dateStringShort", ""),
         )
 
-    def _parse_map(self, map_elem: etree.Element) -> Optional[Map]:
+    def _parse_map(self, map_elem: etree.Element) -> Map | None:
         try:
             map_id = self._get_text(map_elem, "uniqueID", "unknown")
             map_size = self._parse_map_size(map_elem)
@@ -210,7 +209,7 @@ class RimWorldSaveParser:
             logger.error(f"Error parsing map: {e}")
             return None
 
-    def _parse_map_size(self, map_elem: etree.Element) -> Tuple[int, int]:
+    def _parse_map_size(self, map_elem: etree.Element) -> tuple[int, int]:
         map_info = map_elem.find(".//mapInfo")
         if map_info is not None:
             size_elem = map_info.find(".//size")
@@ -424,7 +423,7 @@ class RimWorldSaveParser:
 
     def _parse_building(
         self, thing: etree.Element, thing_id: str, def_name: str, pos: Position
-    ) -> Optional[Building]:
+    ) -> Building | None:
         building = Building(id=thing_id, def_name=def_name, position=pos)
 
         rotation = thing.find(".//rot")
@@ -458,7 +457,7 @@ class RimWorldSaveParser:
 
     def _parse_pawn(
         self, thing: etree.Element, thing_id: str, def_name: str, pos: Position
-    ) -> Optional[Pawn]:
+    ) -> Pawn | None:
         # Get name from various possible locations
         name = def_name
         name_elem = thing.find("name")
@@ -512,7 +511,7 @@ class RimWorldSaveParser:
 
     def _parse_item(
         self, thing: etree.Element, thing_id: str, def_name: str, pos: Position
-    ) -> Optional[Item]:
+    ) -> Item | None:
         item = Item(id=thing_id, def_name=def_name, position=pos)
 
         stack_count = thing.find(".//stackCount")
@@ -541,7 +540,7 @@ class RimWorldSaveParser:
                 if zone:
                     game_map.zones.append(zone)
 
-    def _parse_zone(self, zone_elem: etree.Element) -> Optional[Zone]:
+    def _parse_zone(self, zone_elem: etree.Element) -> Zone | None:
         zone_id = self._get_text(zone_elem, "ID", "")
         zone_label = self._get_text(zone_elem, "label", "Unknown Zone")
         zone_type = zone_elem.get("Class", "Zone")
@@ -571,8 +570,8 @@ class RimWorldSaveParser:
                 )
 
     def _decode_area_grid(
-        self, grid_text: str, map_size: Tuple[int, int]
-    ) -> List[Position]:
+        self, grid_text: str, map_size: tuple[int, int]
+    ) -> list[Position]:
         positions = []
         width, height = map_size
         values = grid_text.strip().split(",")
@@ -588,13 +587,13 @@ class RimWorldSaveParser:
 
         return positions
 
-    def _parse_position(self, elem: etree.Element) -> Optional[Position]:
+    def _parse_position(self, elem: etree.Element) -> Position | None:
         pos_elem = elem.find(".//pos")
         if pos_elem is not None and pos_elem.text:
             return self._parse_cell_position(pos_elem.text)
         return None
 
-    def _parse_cell_position(self, text: str) -> Optional[Position]:
+    def _parse_cell_position(self, text: str) -> Position | None:
         if not text:
             return None
 
@@ -616,7 +615,7 @@ class RimWorldSaveParser:
         return None
 
     def _get_text(
-        self, elem: Optional[etree.Element], path: str, default: str = ""
+        self, elem: etree.Element | None, path: str, default: str = ""
     ) -> str:
         if elem is None:
             return default

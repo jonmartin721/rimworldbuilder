@@ -7,7 +7,6 @@ Smart unified generator that automatically handles everything:
 - Generates optimal base design
 """
 
-from typing import Dict
 
 from src.generators.zone_aware_generator import ZoneAwareGenerator
 from src.analysis.terrain_analyzer import TerrainAnalyzer
@@ -75,7 +74,7 @@ class SmartGenerator:
         width: int = 100,
         height: int = 100,
         use_claude: bool = False,
-    ) -> Dict:
+    ) -> dict:
         """
         Generate a complete base design from user request
 
@@ -198,7 +197,7 @@ class SmartGenerator:
 
     def _requirements_to_claude_format(
         self, requirements, original_request: str
-    ) -> Dict:
+    ) -> dict:
         """Convert parsed requirements to Claude API format"""
         return {
             "description": original_request,
@@ -220,7 +219,7 @@ class SmartGenerator:
             "special": requirements.special_requirements or [],
         }
 
-    def _create_local_plan(self, requirements, terrain_analysis) -> Dict:
+    def _create_local_plan(self, requirements, terrain_analysis) -> dict:
         """Create a detailed plan using local best practices"""
         plan = {"rooms": [], "defense": {}, "infrastructure": {}, "zones": {}}
 
@@ -306,7 +305,7 @@ class SmartGenerator:
 
         return plan
 
-    def _plan_to_requirements(self, plan: Dict, base_requirements) -> Dict:
+    def _plan_to_requirements(self, plan: dict, base_requirements) -> dict:
         """Convert detailed plan to generation requirements"""
         req = {
             "rooms": plan.get("rooms", []),

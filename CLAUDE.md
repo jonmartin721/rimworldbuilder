@@ -13,9 +13,12 @@ RimWorld Base Assistant - A comprehensive AI-powered tool for parsing RimWorld s
 # Install dependencies (uses Poetry)
 poetry install
 
-# Linting (we use ruff for code quality)
-ruff check . --fix        # Auto-fix issues
-ruff format .            # Format code
+# Linting (we use ruff AND MCP IDE diagnostics for comprehensive checks)
+poetry run ruff check .              # Run ruff linter
+poetry run ruff check . --fix        # Auto-fix ruff issues
+poetry run ruff format .             # Format code
+# Also use mcp__ide__getDiagnostics for VSCode/Pylance type checking issues
+# When fixing linting issues, use BOTH tools for complete coverage
 
 # Parse a save file (place .rws file in data/saves/)
 poetry run python scripts/test_parser.py
