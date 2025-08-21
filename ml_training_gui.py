@@ -1367,6 +1367,12 @@ class MLTrainingGUI:
             if not epoch_samples:
                 return
                 
+            # Samples from trainer have 'image_path' and 'description'
+            # Make sure they all have scores (add default if missing)
+            for sample in epoch_samples:
+                if 'score' not in sample:
+                    sample['score'] = 0.5  # Default score
+                
             # Sort samples by quality/score
             sorted_samples = sorted(epoch_samples, key=lambda x: x.get('score', 0), reverse=True)
             
@@ -1374,17 +1380,21 @@ class MLTrainingGUI:
             if sorted_samples:
                 best = sorted_samples[0]
                 self.update_preview_image(self.best_image_label, best.get('image_path'))
-                self.best_score_label.config(text=f"Score: {best.get('score', 0):.2f}")
+                self.best_score_label.config(text=f"{best.get('description', 'Sample 1')[:30]}")
             
             # Update worst sample
             if len(sorted_samples) > 1:
                 worst = sorted_samples[-1]
                 self.update_preview_image(self.worst_image_label, worst.get('image_path'))
-                self.worst_score_label.config(text=f"Score: {worst.get('score', 0):.2f}")
+                self.worst_score_label.config(text=f"{worst.get('description', 'Sample 2')[:30]}")
             
             # Update latest sample
-            if sorted_samples:
-                latest = sorted_samples[len(sorted_samples)//2]  # Middle sample
+            if len(sorted_samples) > 2:
+                latest = sorted_samples[2]  # Third sample
+                self.update_preview_image(self.latest_image_label, latest.get('image_path'))
+                self.latest_info_label.config(text=f"{latest.get('description', 'Sample 3')[:30]}")
+            elif sorted_samples:
+                latest = sorted_samples[-1]  # Last sample if less than 3
                 self.update_preview_image(self.latest_image_label, latest.get('image_path'))
                 self.latest_info_label.config(text=f"Epoch: {self.current_epoch}")
                 
@@ -1515,10 +1525,8 @@ class MLTrainingGUI:
                 elif msg_type == 'generate_previews':
                     # Generate and show preview samples
                     epoch = msg_data
-                    self.log(f"Updating visual previews for epoch {epoch}...")
-                    samples = self.generate_and_preview_samples(3)
-                    if samples:
-                        self.update_training_previews(samples)
+                    # Don't generate here - wait for feedback_request which has the actual samples
+                    self.log(f"Epoch {epoch} - waiting for samples from trainer...")
                 elif msg_type == 'complete':
                     self.log(msg_data)
                     self.is_training = False
@@ -1530,6 +1538,9 @@ class MLTrainingGUI:
                 elif msg_type == 'feedback_request':
                     # Show feedback dialog for generated samples
                     self.log("Feedback requested - showing dialog...")
+                    # Update preview panels with the SAME samples being reviewed
+                    if msg_data:
+                        self.update_training_previews(msg_data)
                     self.show_feedback_dialog(msg_data)
                 elif msg_type == 'error':
                     self.log(f"ERROR: {msg_data}")
