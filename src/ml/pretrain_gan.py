@@ -115,7 +115,9 @@ class GANPretrainer:
     def create_training_batch(self, examples: List[Dict], batch_size: int = 16) -> Tuple:
         """Create a training batch from examples"""
         # Sample random examples
-        indices = np.random.choice(len(examples), batch_size, replace=False)
+        # If batch_size > len(examples), allow replacement
+        replace = batch_size > len(examples)
+        indices = np.random.choice(len(examples), batch_size, replace=replace)
         batch_examples = [examples[i] for i in indices]
         
         # Prepare tensors
@@ -176,45 +178,48 @@ class GANPretrainer:
         for epoch in range(num_epochs):
             epoch_g_loss = 0
             epoch_d_loss = 0
-            num_batches = len(examples) // batch_size
+            num_batches = max(1, len(examples) // batch_size)  # Ensure at least 1 batch
+            
+            # If we have fewer examples than batch_size, use all examples
+            actual_batch_size = min(batch_size, len(examples))
             
             for batch_idx in range(num_batches):
                 # Get batch
-                layouts, conditions, quality_labels = self.create_training_batch(examples, batch_size)
+                layouts, conditions, quality_labels = self.create_training_batch(examples, actual_batch_size)
                 layouts = layouts.to(self.device)
                 conditions = conditions.to(self.device)
                 quality_labels = quality_labels.to(self.device)
                 
                 # Train discriminator
-                self.gan.optimizer_d.zero_grad()
+                self.gan.d_optimizer.zero_grad()
                 
                 # Real samples
                 real_validity = self.gan.discriminator(layouts, conditions)
                 real_labels = torch.ones_like(real_validity) * 0.9  # Label smoothing
-                d_real_loss = self.gan.criterion(real_validity, real_labels)
+                d_real_loss = self.gan.adversarial_loss(real_validity, real_labels)
                 
                 # Fake samples
-                z = torch.randn(batch_size, self.gan.latent_dim).to(self.device)
+                z = torch.randn(actual_batch_size, self.gan.latent_dim).to(self.device)
                 fake_layouts = self.gan.generator(z, conditions)
                 fake_validity = self.gan.discriminator(fake_layouts.detach(), conditions)
                 fake_labels = torch.zeros_like(fake_validity) * 0.1  # Label smoothing
-                d_fake_loss = self.gan.criterion(fake_validity, fake_labels)
+                d_fake_loss = self.gan.adversarial_loss(fake_validity, fake_labels)
                 
                 d_loss = (d_real_loss + d_fake_loss) / 2
                 d_loss.backward()
-                self.gan.optimizer_d.step()
+                self.gan.d_optimizer.step()
                 
                 # Train generator
-                self.gan.optimizer_g.zero_grad()
+                self.gan.g_optimizer.zero_grad()
                 
-                z = torch.randn(batch_size, self.gan.latent_dim).to(self.device)
+                z = torch.randn(actual_batch_size, self.gan.latent_dim).to(self.device)
                 gen_layouts = self.gan.generator(z, conditions)
                 gen_validity = self.gan.discriminator(gen_layouts, conditions)
                 gen_labels = torch.ones_like(gen_validity)  # Want to fool discriminator
                 
-                g_loss = self.gan.criterion(gen_validity, gen_labels)
+                g_loss = self.gan.adversarial_loss(gen_validity, gen_labels)
                 g_loss.backward()
-                self.gan.optimizer_g.step()
+                self.gan.g_optimizer.step()
                 
                 epoch_g_loss += g_loss.item()
                 epoch_d_loss += d_loss.item()
