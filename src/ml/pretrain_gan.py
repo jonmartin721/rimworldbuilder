@@ -58,19 +58,18 @@ class GANPretrainer:
                 include_workshop=np.random.randint(1, 4),
                 include_hospital=np.random.rand() > 0.3,
                 include_storage=np.random.rand() > 0.2,
-                include_dining=np.random.rand() > 0.4,
-                include_recreation=np.random.rand() > 0.5,
-                include_prison=np.random.rand() > 0.7
+                include_dining=np.random.rand() > 0.4
             )
             
             # Create requirements that match the generated base
+            # Note: has_recreation is still in requirements but not in generator
             requirements = BaseRequirements(
                 num_colonists=num_colonists,
                 num_bedrooms=num_bedrooms,
                 num_workshops=np.random.randint(1, 4),
                 has_kitchen=True,
                 has_hospital=np.random.rand() > 0.3,
-                has_recreation=np.random.rand() > 0.5,
+                has_recreation=False,  # Generator doesn't support recreation rooms yet
                 defense_level=np.random.rand(),
                 beauty_preference=np.random.rand(),
                 efficiency_preference=0.5 + np.random.rand() * 0.5,
