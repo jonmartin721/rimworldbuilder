@@ -335,6 +335,10 @@ class BaseDataset(Dataset):
         h, w = layout.shape
         
         if h != target_size or w != target_size:
+            # Debug large sizes
+            if h > target_size or w > target_size:
+                logger.debug(f"Layout size {h}x{w} exceeds target {target_size}x{target_size}")
+            
             # Create padded/cropped layout
             fixed_layout = torch.zeros(target_size, target_size, dtype=layout.dtype)
             
@@ -347,12 +351,16 @@ class BaseDataset(Dataset):
             # Calculate destination coordinates
             dest_h_start = max(0, (target_size - h) // 2)
             dest_w_start = max(0, (target_size - w) // 2)
-            dest_h_end = dest_h_start + (h_end - h_start)
-            dest_w_end = dest_w_start + (w_end - w_start)
+            dest_h_end = min(target_size, dest_h_start + (h_end - h_start))
+            dest_w_end = min(target_size, dest_w_start + (w_end - w_start))
             
-            # Copy the data
-            fixed_layout[dest_h_start:dest_h_end, dest_w_start:dest_w_end] = \
-                layout[h_start:h_end, w_start:w_end]
+            # Copy the data (ensure we don't exceed bounds)
+            src_h_size = min(h_end - h_start, dest_h_end - dest_h_start)
+            src_w_size = min(w_end - w_start, dest_w_end - dest_w_start)
+            
+            fixed_layout[dest_h_start:dest_h_start + src_h_size, 
+                        dest_w_start:dest_w_start + src_w_size] = \
+                layout[h_start:h_start + src_h_size, w_start:w_start + src_w_size]
             
             layout = fixed_layout
         
