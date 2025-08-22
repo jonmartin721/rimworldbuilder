@@ -5,7 +5,7 @@ This allows the ML model to learn and generate bases using actual mod content.
 
 import xml.etree.ElementTree as ET
 from pathlib import Path
-from typing import Dict, List, Set, Optional
+from typing import Dict, List, Optional
 import json
 import logging
 from dataclasses import dataclass, asdict
@@ -331,7 +331,7 @@ def integrate_mod_content(model_dir: Path):
     furniture = extractor.get_furniture_items()
     production = extractor.get_production_items()
     
-    logger.info(f"Available mod content:")
+    logger.info("Available mod content:")
     logger.info(f"  - Decorations: {len(decorations)}")
     logger.info(f"  - Furniture: {len(furniture)}")
     logger.info(f"  - Production: {len(production)}")

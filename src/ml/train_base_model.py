@@ -4,8 +4,7 @@ Supports training on RTX 5090 with mixed precision and distributed training.
 """
 
 import torch
-import torch.nn as nn
-from torch.cuda.amp import autocast, GradScaler
+from torch.cuda.amp import autocast
 import numpy as np
 from pathlib import Path
 import logging
@@ -13,7 +12,6 @@ from tqdm import tqdm
 import matplotlib.pyplot as plt
 from typing import Dict, List, Optional, Tuple
 import json
-import time
 
 from src.ml.base_gan_model import BaseGAN, BaseRequirements
 from src.ml.dataset_collector import DatasetCollector, BaseExample, UserFeedbackCollector
@@ -41,7 +39,7 @@ class InteractiveTrainer:
                 test_tensor = torch.randn(10, 10).cuda()
                 _ = test_tensor + test_tensor  # Simple operation
                 self.device = "cuda"
-                logger.info(f"CUDA test successful - using GPU")
+                logger.info("CUDA test successful - using GPU")
             except RuntimeError as e:
                 if "no kernel image" in str(e):
                     logger.warning("RTX 5090 detected but PyTorch doesn't have compiled kernels for sm_120 yet")

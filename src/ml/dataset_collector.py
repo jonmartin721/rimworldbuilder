@@ -13,8 +13,6 @@ from torch.utils.data import Dataset, DataLoader
 import json
 import xml.etree.ElementTree as ET
 from pathlib import Path
-from PIL import Image
-import requests
 from typing import List, Dict, Tuple, Optional
 import logging
 from dataclasses import dataclass, asdict
@@ -199,7 +197,6 @@ class AlphaPrefabsParser:
         # Calculate various metrics
         total_cells = grid.size
         empty_cells = np.sum(grid == CellType.EMPTY.value)
-        wall_cells = np.sum(grid == CellType.WALL.value)
         
         # Space usage efficiency
         space_usage = 1.0 - (empty_cells / total_cells)

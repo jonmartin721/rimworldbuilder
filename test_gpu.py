@@ -30,21 +30,21 @@ if torch.cuda.is_available():
         
         # Basic math
         z = x + y
-        print(f"Addition: OK")
+        print("Addition: OK")
         
         # Matrix multiplication
         z = torch.matmul(x, y)
-        print(f"Matrix multiplication: OK")
+        print("Matrix multiplication: OK")
         
         # Neural network layer
         layer = torch.nn.Linear(100, 50).cuda()
         output = layer(x)
-        print(f"Neural network layer: OK")
+        print("Neural network layer: OK")
         
         # Backward pass
         loss = output.mean()
         loss.backward()
-        print(f"Backward pass: OK")
+        print("Backward pass: OK")
         
         print("\nAll GPU operations successful!")
         

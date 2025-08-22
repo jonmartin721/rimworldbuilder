@@ -98,7 +98,7 @@ class RealisticBaseVisualizer:
         # Draw title
         try:
             font = ImageFont.truetype("arial.ttf", 16)
-        except:
+        except (IOError, OSError):
             font = ImageFont.load_default()
             
         draw.text((10, 5), title, fill=(255, 255, 255), font=font)

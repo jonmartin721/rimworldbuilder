@@ -13,7 +13,6 @@ sys.path.insert(0, str(Path(__file__).parent))
 from src.ml.side_by_side_feedback import show_side_by_side_feedback
 from src.generators.realistic_base_generator import RealisticBaseGenerator
 from src.visualization.realistic_visualizer import RealisticBaseVisualizer
-import numpy as np
 
 
 def generate_test_samples(num_samples=6):
