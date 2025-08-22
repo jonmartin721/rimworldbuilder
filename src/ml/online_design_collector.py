@@ -7,7 +7,7 @@ import requests
 import json
 import re
 from pathlib import Path
-from typing import List, Dict, Optional
+from typing import List, Optional
 import numpy as np
 from dataclasses import dataclass
 import logging
@@ -93,15 +93,15 @@ class OnlineDesignCollector:
         """Collect base designs from Steam Workshop"""
         designs = []
         
-        # Steam Workshop API
-        url = "https://api.steampowered.com/IPublishedFileService/QueryFiles/v1/"
-        params = {
-            'key': 'YOUR_STEAM_API_KEY',  # Need to get from Steam
-            'appid': app_id,  # RimWorld
-            'search_text': 'base layout prefab',
-            'return_metadata': True,
-            'numperpage': limit
-        }
+        # Steam Workshop API - commented out for now as it requires API key
+        # url = "https://api.steampowered.com/IPublishedFileService/QueryFiles/v1/"
+        # params = {
+        #     'key': 'YOUR_STEAM_API_KEY',  # Need to get from Steam
+        #     'appid': app_id,  # RimWorld
+        #     'search_text': 'base layout prefab',
+        #     'return_metadata': True,
+        #     'numperpage': limit
+        # }
         
         # For now, return empty since we need API key
         logger.info("Steam Workshop collection requires API key")

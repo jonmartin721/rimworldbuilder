@@ -8,11 +8,10 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
-from torch.cuda.amp import autocast, GradScaler
+from torch.cuda.amp import GradScaler
 import numpy as np
 from dataclasses import dataclass
-from typing import Dict, List, Tuple, Optional
-import json
+from typing import Dict, Tuple
 from pathlib import Path
 
 

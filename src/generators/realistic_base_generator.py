@@ -7,7 +7,7 @@ import numpy as np
 import random
 from dataclasses import dataclass
 from enum import IntEnum
-from typing import List, Tuple, Dict, Optional
+from typing import List, Tuple, Optional
 
 
 class CellType(IntEnum):

@@ -73,7 +73,7 @@ def main():
         
         # Parse NLP request
         params = parse_nlp_request(request)
-        print(f"Parsed parameters:")
+        print("Parsed parameters:")
         for key, value in params.items():
             print(f"  - {key}: {value}")
         

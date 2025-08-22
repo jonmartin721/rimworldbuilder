@@ -5,7 +5,6 @@ Test script for visual training progress features
 
 import sys
 from pathlib import Path
-import time
 
 # Add parent to path
 sys.path.insert(0, str(Path(__file__).parent))
