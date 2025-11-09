@@ -1,6 +1,6 @@
 """AI-powered base design module"""
 
-from .claude_base_designer import (
+from .ai_base_designer import (
     ClaudeBaseDesigner,
     BaseDesignRequest,
     BaseDesignPlan,

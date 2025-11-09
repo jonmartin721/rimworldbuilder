@@ -897,11 +897,11 @@ class RimWorldAssistantGUI:
             font=ModernTheme.FONT_BODY,
         ).pack(anchor=tk.W, pady=2)
 
-        self.use_claude = tk.BooleanVar(value=False)
+        self.use_ai = tk.BooleanVar(value=False)
         tk.Checkbutton(
             options_frame,
-            text="Use Claude AI (if available)",
-            variable=self.use_claude,
+            text="Use AI (if available)",
+            variable=self.use_ai,
             bg=ModernTheme.BG_APP,
             font=ModernTheme.FONT_BODY,
         ).pack(anchor=tk.W, pady=2)
@@ -1718,7 +1718,7 @@ Make it efficient with good traffic flow and follow RimWorld best practices."""
                     user_request=description,
                     width=width,
                     height=height,
-                    use_claude=self.use_claude.get(),
+                    use_claude=self.use_ai.get(),
                 )
 
                 grid = result.get("grid")
@@ -1859,7 +1859,7 @@ GENERATION MODES:
 • Natural Language: Describe base in plain English
 • Prefab Anchors: Uses complete room designs
 • Enhanced Hybrid: Combines multiple techniques
-• AI Designer: Uses Claude AI for planning
+• AI Designer: Uses AI for planning
 
 TIPS:
 • Be specific in your requirements

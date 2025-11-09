@@ -11,7 +11,7 @@ Smart unified generator that automatically handles everything:
 from src.generators.zone_aware_generator import ZoneAwareGenerator
 from src.analysis.terrain_analyzer import TerrainAnalyzer
 from src.nlp.base_generator_nlp import BaseGeneratorNLP
-from src.ai.claude_base_designer import ClaudeBaseDesigner
+from src.ai.ai_base_designer import ClaudeBaseDesigner
 from src.generators.requirements_driven_generator import RequirementsDrivenGenerator
 from src.models.base_grid import BaseGrid
 
@@ -73,7 +73,7 @@ class SmartGenerator:
         user_request: str,
         width: int = 100,
         height: int = 100,
-        use_claude: bool = False,
+        use_ai: bool = False,
     ) -> dict:
         """
         Generate a complete base design from user request
@@ -82,7 +82,7 @@ class SmartGenerator:
             user_request: Natural language description of desired base
             width: Base width (will auto-adjust based on terrain)
             height: Base height (will auto-adjust based on terrain)
-            use_claude: Whether to use Claude AI for advanced planning
+            use_ai: Whether to use AI for advanced planning
 
         Returns:
             Dict with:
@@ -119,17 +119,17 @@ class SmartGenerator:
         print("📐 Creating detailed base plan...")
         detailed_plan = None
 
-        if use_claude:
+        if use_ai:
             try:
                 designer = ClaudeBaseDesigner()
                 # Convert requirements to Claude format
-                claude_request = self._requirements_to_claude_format(
+                ai_request = self._requirements_to_ai_format(
                     requirements, user_request
                 )
-                detailed_plan = designer.design_base(claude_request)
-                print("  ✅ Claude AI provided advanced design")
+                detailed_plan = designer.design_base(ai_request)
+                print("  ✅ AI provided advanced design")
             except Exception as e:
-                print(f"  ⚠️ Claude unavailable, using local planning: {e}")
+                print(f"  ⚠️ AI unavailable, using local planning: {e}")
 
         if not detailed_plan:
             # Use local planning with best practices
@@ -195,10 +195,10 @@ class SmartGenerator:
             "report": report,
         }
 
-    def _requirements_to_claude_format(
+    def _requirements_to_ai_format(
         self, requirements, original_request: str
     ) -> dict:
-        """Convert parsed requirements to Claude API format"""
+        """Convert parsed requirements to AI API format"""
         return {
             "description": original_request,
             "colonists": requirements.num_colonists,

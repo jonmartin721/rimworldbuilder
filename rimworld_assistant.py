@@ -20,7 +20,7 @@ from src.generators.enhanced_hybrid_generator import (
 )
 from src.generators.requirements_driven_generator import RequirementsDrivenGenerator
 from src.nlp.base_generator_nlp import BaseGeneratorNLP
-from src.ai.claude_base_designer import ClaudeBaseDesigner, BaseDesignRequest
+from src.ai.ai_base_designer import ClaudeBaseDesigner, BaseDesignRequest
 from src.utils.progress import spinner, log_section, log_item
 from src.utils.symbols import SUCCESS, FAILURE, FOLDER, CHART, PENCIL, ROBOT, HAMMER
 

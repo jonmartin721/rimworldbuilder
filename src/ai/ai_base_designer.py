@@ -1,6 +1,6 @@
 """
-Claude API integration for intelligent RimWorld base design.
-Uses Claude to generate detailed base plans based on requirements.
+AI API integration for intelligent RimWorld base design.
+Uses natural language processing to generate detailed base plans based on requirements.
 """
 
 import os
@@ -30,7 +30,7 @@ except ImportError:
 
 @dataclass
 class BaseDesignRequest:
-    """Request for Claude to design a base"""
+    """Request for AI to design a base"""
 
     colonist_count: int
     map_size: tuple[int, int]
@@ -58,7 +58,7 @@ class RoomSpec:
 
 @dataclass
 class BaseDesignPlan:
-    """Complete base design plan from Claude"""
+    """Complete base design plan from AI"""
 
     room_specs: list[RoomSpec]
     layout_strategy: str  # e.g., "centralized", "distributed", "defensive_layers"
@@ -70,11 +70,11 @@ class BaseDesignPlan:
 
 
 class ClaudeBaseDesigner:
-    """Uses Claude API to generate intelligent base designs"""
+    """Uses AI API to generate intelligent base designs"""
 
     def __init__(self, api_key: str | None = None):
         """
-        Initialize Claude designer.
+        Initialize AI designer.
 
         Args:
             api_key: Anthropic API key (or set ANTHROPIC_API_KEY env var)
@@ -91,7 +91,7 @@ class ClaudeBaseDesigner:
 
     def design_base(self, request: BaseDesignRequest) -> BaseDesignPlan | None:
         """
-        Get Claude to design a base based on requirements.
+        Get AI to design a base based on requirements.
 
         Args:
             request: Base design requirements
@@ -105,7 +105,7 @@ class ClaudeBaseDesigner:
         prompt = self._create_design_prompt(request)
 
         try:
-            with spinner("Requesting base design from Claude AI"):
+            with spinner("Requesting base design from AI"):
                 response = self.client.messages.create(
                     model="claude-3-haiku-20240307",  # Using Haiku for cost efficiency
                     max_tokens=2000,
@@ -116,16 +116,16 @@ class ClaudeBaseDesigner:
 
             print("✅ Received AI design plan")
 
-            # Parse Claude's response
-            return self._parse_claude_response(response.content[0].text)
+            # Parse AI response
+            return self._parse_ai_response(response.content[0].text)
 
         except Exception as e:
-            print(f"⚠️ Claude API error: {e}")
+            print(f"⚠️ AI API error: {e}")
             print("Using fallback design...")
             return self._get_fallback_design(request)
 
     def _create_design_prompt(self, request: BaseDesignRequest) -> str:
-        """Create detailed prompt for Claude"""
+        """Create detailed prompt for AI"""
         prompt = f"""You are an expert RimWorld base designer. Design an optimal base layout for the following requirements:
 
 REQUIREMENTS:
@@ -178,10 +178,10 @@ Provide only the JSON response, no additional text."""
 
         return prompt
 
-    def _parse_claude_response(self, response_text: str) -> BaseDesignPlan:
-        """Parse Claude's JSON response into BaseDesignPlan"""
+    def _parse_ai_response(self, response_text: str) -> BaseDesignPlan:
+        """Parse AI JSON response into BaseDesignPlan"""
         try:
-            # Extract JSON from response (Claude might add text around it)
+            # Extract JSON from response (AI might add text around it)
             import re
 
             json_match = re.search(r"\{.*\}", response_text, re.DOTALL)
@@ -213,7 +213,7 @@ Provide only the JSON response, no additional text."""
                     estimated_resources=data.get("estimated_resources", {}),
                 )
         except Exception as e:
-            print(f"Error parsing Claude response: {e}")
+            print(f"Error parsing AI response: {e}")
             return self._get_fallback_design(BaseDesignRequest(colonist_count=5))
 
     def _get_fallback_design(self, request: BaseDesignRequest) -> BaseDesignPlan:
@@ -292,10 +292,10 @@ Provide only the JSON response."""
                 messages=[{"role": "user", "content": prompt}],
             )
 
-            return self._parse_claude_response(response.content[0].text)
+            return self._parse_ai_response(response.content[0].text)
 
         except Exception as e:
-            print(f"Claude API error: {e}")
+            print(f"AI API error: {e}")
             return self._simple_refinement(plan, feedback)
 
     def _simple_refinement(self, plan: BaseDesignPlan, feedback: str) -> BaseDesignPlan:
@@ -335,8 +335,8 @@ Provide only the JSON response."""
         return plan
 
 
-def demo_claude_designer():
-    """Demonstrate the Claude base designer"""
+def demo_ai_designer():
+    """Demonstrate the AI base designer"""
     designer = ClaudeBaseDesigner()
 
     # Create a request
@@ -350,7 +350,7 @@ def demo_claude_designer():
         available_space=(50, 50),
     )
 
-    print("Requesting base design from Claude...")
+    print("Requesting base design from AI...")
     plan = designer.design_base(request)
 
     if plan:
@@ -378,4 +378,4 @@ def demo_claude_designer():
 
 
 if __name__ == "__main__":
-    demo_claude_designer()
+    demo_ai_designer()

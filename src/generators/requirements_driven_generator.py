@@ -11,7 +11,7 @@ import time
 
 from src.generators.enhanced_hybrid_generator import EnhancedHybridGenerator
 from src.generators.alpha_prefab_parser import AlphaPrefabLayout
-from src.ai.claude_base_designer import BaseDesignPlan, RoomSpec
+from src.ai.ai_base_designer import BaseDesignPlan, RoomSpec
 from src.nlp.base_generator_nlp import BaseRequirements
 from src.generators.wfc_generator import TileType
 from src.generators.rimworld_best_practices import RimWorldBestPractices, ModConfig
